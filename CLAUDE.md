@@ -1,0 +1,220 @@
+# MTG Battle - Claude 项目助手配置
+
+## 项目概述
+
+MTG Battle 是一个基于 Magic: The Gathering 2026年2月27日综合规则的1v1 Java Swing 对战游戏。
+
+**当前分支**: `java-mtg` (main: `main`)
+**Commit**: `8c45e17` — Phase 1 核心框架已完成
+
+**运行方式**:
+```bash
+# 项目根目录
+javac -d out -sourcepath src/main/java $(find src/main/java -name "*.java")
+java -cp out com.mtg.MtgBattle
+```
+
+**测试运行**（需手动下载 JUnit Platform Console）:
+```bash
+# 1. 下载 JUnit Platform Console
+curl -L -o /tmp/junit-platform-console-standalone.jar \
+  "https://repo1.maven.org/maven2/org/junit/platform/junit-platform-console-standalone/1.9.3/junit-platform-console-standalone-1.9.3.jar"
+
+# 2. 编译
+find src/main/java -name "*.java" > /tmp/sources.txt
+javac -d /tmp/mtg-classes @/tmp/sources.txt
+
+# 3. 编译测试
+JUNIT=~/.m2/repository/org/junit/jupiter/junit-jupiter-api/5.9.3/junit-jupiter-api-5.9.3.jar
+APIG=~/.m2/repository/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar
+OPENTEST=~/.m2/repository/org/opentest4j/opentest4j/1.2.0/opentest4j-1.2.0.jar
+for f in $(find src/test/java -name "*.java"); do
+  javac -d /tmp/mtg-test-classes -cp "$JUNIT:$APIG:$OPENTEST" \
+    -sourcepath "src/main/java;src/test/java" "$f"
+done
+
+# 4. 运行测试
+java -jar /tmp/junit-platform-console-standalone.jar \
+  --class-path "/tmp/mtg-test-classes:/tmp/mtg-classes" --scan-classpath
+
+# 当前状态: 137 tests, 全部通过
+```
+
+---
+
+## 用户偏好
+
+- **语言**: 中文为主，代码注释/文档用中文
+- **响应风格**: 简洁、直接，不要过度解释
+- **测试要求**: 每次新增功能必须写单元测试
+- **提交风格**: 小步提交，每个逻辑变更单独提交，不要超长 commit message
+
+---
+
+## 项目架构
+
+```
+src/main/java/com/mtg/
+├── model/          # Card, CreatureCard, LandCard, PermanentCard, GameObject...
+├── zones/          # Zone, Library, Hand, Battlefield, Graveyard, Exile, Stack, ZoneManager
+├── gamecore/       # PrioritySystem, StateBasedActions
+├── game/           # Game, TurnManager, TurnPhase, (废弃: GamePhase, CombatManager)
+├── player/         # Player, Deck
+├── card/           # CardLibrary
+└── ui/             # GameFrame, HandPanel, BattlefieldPanel, CardPanel, PlayerPanel
+```
+
+---
+
+## Phase 1 已完成 ✓
+
+**目标**: 核心框架 — 区域系统、优先权、回合结构、状态基准动作
+
+### 区域系统 (Rule 400-406)
+
+所有区域实现 `Zone` 接口：
+
+```java
+public interface Zone {
+    String getName();
+    boolean isPublic();        // true: 公开区域 | false: 私有区域
+    Player getOwner();
+    void add(GameObject object, Player controller);
+    GameObject remove(GameObject object);
+    List<GameObject> getContents();
+    boolean contains(GameObject object);
+    int size();
+    List<GameObject> getContentsSnapshot();
+}
+```
+
+| 类 | 规则 | isPublic | 关键方法 |
+|----|------|---------|---------|
+| `Library` | 401 | false | draw(), shuffle(), addToTop/Bottom, putAtPosition |
+| `Hand` | 402 | false | add(), discardDownToMax(), getMaxSize() |
+| `Battlefield` | 403 | true | add(permanent), getCreatures(), getLands(), getControlledBy() |
+| `Graveyard` | 404 | true | add(), getTop(), remove() |
+| `Exile` | 406 | true | exile(card, reason, faceDown), ExileEntry, getFaceUpCards() |
+| `Stack` | 405 | true | push(SpellItem), resolve() [LIFO], peek(), counter(index) |
+
+**ZoneManager** 是所有区域转换的中央处理器（Rule 400.6）：
+```java
+Card drawCard(Player);              // Library → Hand
+void putOnBattlefield(Card, Player); // Hand → Battlefield (自动untap)
+void destroy(PermanentCard);        // Battlefield → Graveyard
+void castSpell(Card, Player);       // Hand → Stack
+void exile(PermanentCard);          // Battlefield → Exile
+```
+
+**注意**: 每次区域转换必须调用 `Card.onZoneChange(newZone)` 更新 `currentZone`（Rule 400.7）。
+`Card.isPermanent()` 和 `Card.isSpell()` 依赖 `currentZone` 判断。
+
+### 优先权系统 (Rule 117)
+
+```java
+PrioritySystem ps = new PrioritySystem();
+ps.setPlayers(active, nonActive);
+ps.grantPriorityToActive();     // 阶段开始
+ps.pass();                     // AP→NAP 或 NAP→passCount++
+ps.onSpellCast();              // 出咒语后重置 passCount
+ps.allPlayersPassed();          // passCount >= 2 → 解决堆叠
+```
+
+### 回合结构 (Rule 500-514)
+
+14 个阶段，按顺序：
+```
+UNTAAP → UPKEEP → DRAW → MAIN1 →
+COMBAT_START → DECLARE_ATTACKERS → DECLARE_BLOCKERS →
+COMBAT_DAMAGE → [COMBAT_DAMAGE_FIRST] → COMBAT_END →
+MAIN2 → END → CLEANUP → (switchTurn → UNTAAP)
+```
+
+`TurnManager` 管理阶段推进和战斗宣告。**重要**: `switchTurn()` 会增加 `turnNumber` 并清空战斗状态。
+
+### 状态基准动作 (Rule 704)
+
+`StateBasedActions.check(p1, p2, battlefield, lib1, lib2)` 检查：
+- 生命 ≤ 0 / 中毒 ≥ 10
+- 生物防御力 ≤ 0 / 致命伤害
+- 鹏洛客忠诚 = 0 / 传奇规则 / Aura 非法目标 / Battle 防御力 = 0
+
+---
+
+## Phase 2 待开发
+
+- 触发式异能系统（Section 603）
+- 激活式异能（Section 602）
+- 替代式/预防式效果（Section 614/615）
+- 回合阶段 UI 完整集成
+- 游戏日志完善
+- 卡牌效果系统
+
+---
+
+## 关键实现笔记
+
+### Card.isPermanent() 陷阱
+```java
+// Card.isPermanent() 检查 currentZone.name == "Battlefield"
+// 在测试中直接 bf.add(creature) 时 creature.currentZone == null
+// 所以 Battlefield.contains() 应该检查 object.isCard() 而不是 object.isPermanent()
+```
+
+### Player.equals()
+```java
+// Player 重写了 equals() 和 hashCode()，按 name 比较
+// ZoneManager.getPlayerIndex() 依赖此方法
+```
+
+### Hand.add() 不强制限制
+```java
+// Hand.add() 允许超过 maxSize（MTG 规则 402.2）
+// 超过部分在清理阶段通过 discardDownToMax() 处理
+```
+
+### TurnManager 测试注意
+```java
+// TurnManager 可以用 setBattlefield(Battlefield) 独立测试（不依赖 Game）
+// startTurn() 会调用 beginUntapStep()（清空横置状态）
+// advancePhase() 从 UNTAAP 开始
+```
+
+---
+
+## 参考规则文档
+
+- 源文件: `MagicCompRules 20260227.docx` (项目根目录)
+- 提取文本: `rules_extracted.txt`
+- 规则分段: `phase1_rules.txt`, `phase1_full.txt`
+
+关键规则章节:
+- **400**: Zones
+- **401**: Library
+- **402**: Hand
+- **403**: Battlefield
+- **404**: Graveyard
+- **405**: Stack
+- **406**: Exile
+- **117**: Timing and Priority
+- **500**: Starting the Turn
+- **502-514**: Turn Structure
+- **603**: Triggered Abilities
+- **602**: Activated Abilities
+- **614**: Replacement Effects
+- **704**: State-Based Actions
+- **801**: Limited Range of Influence (1v1 忽略)
+
+---
+
+## 历史修复记录
+
+### Phase 1 修复的 Bug
+- `Battlefield.contains()` — 用 `isCard()` 而非 `isPermanent()` (卡加入时 `currentZone` 未设置)
+- `ZoneManager.putOnBattlefield/destroy/castSpell` — 直接操作而不用 `moveObject`（`moveObject` 依赖 `from` 正确）
+- `Player.equals()` — 按 name 比较（ZoneManager.getPlayerIndex 依赖）
+- `TurnManager.switchTurn()` — 增加 turnNumber 并清空战斗状态
+- `Hand.add()` — 不强制 maxSize（MTG 规则正确行为）
+- `TurnManager.endCombat()` — 移除 `game.getPrioritySystem()` 调用（允许 null game）
+- `Library.duplicate size()` — 删除重复的 `size()` 方法
+- `Graveyard.isPublic()` — 返回 `true`（Rule 404.2: 任意玩家可查看）

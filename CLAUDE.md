@@ -5,14 +5,51 @@
 MTG Battle 是一个基于 Magic: The Gathering 2026年2月27日综合规则的1v1 Java Swing 对战游戏。
 
 **当前分支**: `java-mtg` (main: `main`)
-**Commit**: `8c45e17` — Phase 1 核心框架已完成
+**Commit**: `3b1d5e1` — Phase 1 核心框架 + VSCode 配置已完成
 
 **运行方式**:
 ```bash
 # 项目根目录
-javac -d out -sourcepath src/main/java $(find src/main/java -name "*.java")
+find src/main/java -name '*.java' > src-main-sources.txt
+javac -d out -sourcepath src/main/java @src-main-sources.txt
 java -cp out com.mtg.MtgBattle
 ```
+
+---
+
+## VSCode 配置
+
+### 推荐扩展 (.vscode/extensions.json)
+
+安装后 VSCode 会提示安装：
+- **Language Support for Java™ by Red Hat** — 代码补全、跳转、重构
+- **Test Runner for Java** — 直接在 VSCode 运行 JUnit 测试
+- **Debugger for Java** — 断点调试
+- **Maven for Java** — Maven 面板（如果安装了 Maven）
+- **GitLens** — 增强 Git 功能
+
+### 快捷操作
+
+| 操作 | 快捷键 |
+|------|--------|
+| 运行 MTG Battle | `F5`（调试模式会自动编译） |
+| 运行全部测试 | `Ctrl+Shift+P` → "Java: Run Tests" |
+| 运行单个测试 | 在测试方法上右键 → "Run Test" |
+| 重新编译主代码 | `Ctrl+Shift+P` → "Tasks: Run Task" → compile-main |
+| 编译并运行测试 | `Ctrl+Shift+P` → "Tasks: Run Task" → run-tests |
+
+### Task 说明 (.vscode/tasks.json)
+
+- **compile-main** — 编译主代码到 `out/`
+- **compile-tests** — 编译测试代码到 `test-classes/`（需先运行 download-junit）
+- **run-tests** — 运行全部 137 个测试
+- **download-junit** — 下载 JUnit Platform Console（一次性）
+- **build-all** — 清理并重新编译
+
+### 注意
+- 本机无 Maven 时使用 `tasks.json` 中的 javac 命令
+- `download-junit` 任务会下载 JUnit Platform Console 到 `~/junit-platform-console-standalone.jar`
+- 首次运行测试前先执行 `download-junit`
 
 **测试运行**（需手动下载 JUnit Platform Console）:
 ```bash

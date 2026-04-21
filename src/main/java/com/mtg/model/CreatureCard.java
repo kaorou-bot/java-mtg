@@ -7,11 +7,14 @@ public class CreatureCard extends PermanentCard {
     private int toughness;
     private int currentPower;
     private int currentToughness;
+    private int markedDamage;
     private boolean hasFirstStrike;
     private boolean hasDoubleStrike;
     private boolean hasFlying;
     private boolean hasVigilance;
     private boolean hasTrample;
+    private boolean hasDeathtouch;
+    private boolean hasHaste;
 
     public CreatureCard(String name, ManaCost manaCost, String description,
                         List<ManaType> color, int power, int toughness,
@@ -22,11 +25,14 @@ public class CreatureCard extends PermanentCard {
         this.toughness = toughness;
         this.currentPower = power;
         this.currentToughness = toughness;
+        this.markedDamage = 0;
         this.hasFirstStrike = hasFirstStrike;
         this.hasDoubleStrike = hasDoubleStrike;
         this.hasFlying = hasFlying;
         this.hasVigilance = hasVigilance;
         this.hasTrample = hasTrample;
+        this.hasDeathtouch = false;
+        this.hasHaste = false;
     }
 
     @Override
@@ -39,6 +45,10 @@ public class CreatureCard extends PermanentCard {
     }
 
     public int getToughness() {
+        return currentToughness;
+    }
+
+    public int getBaseToughness() {
         return toughness;
     }
 
@@ -50,8 +60,20 @@ public class CreatureCard extends PermanentCard {
         return currentToughness;
     }
 
+    public int getMarkedDamage() {
+        return markedDamage;
+    }
+
+    public void addDamage(int amount) {
+        this.markedDamage += amount;
+    }
+
+    public void clearDamage() {
+        this.markedDamage = 0;
+    }
+
     public boolean canAttack() {
-        return !isTapped() && !hasSummoningSickness();
+        return !isTapped() && (!hasSummoningSickness() || hasHaste);
     }
 
     public boolean hasFirstStrike() {
@@ -74,9 +96,22 @@ public class CreatureCard extends PermanentCard {
         return hasTrample;
     }
 
+    public boolean hasDeathtouch() {
+        return hasDeathtouch;
+    }
+
+    public boolean hasHaste() {
+        return hasHaste;
+    }
+
+    public void setHaste(boolean hasHaste) {
+        this.hasHaste = hasHaste;
+    }
+
     public void resetStats() {
         this.currentPower = power;
         this.currentToughness = toughness;
+        this.markedDamage = 0;
         untap();
     }
 
@@ -97,6 +132,10 @@ public class CreatureCard extends PermanentCard {
         return currentToughness <= 0;
     }
 
+    public boolean hasLethalDamage() {
+        return markedDamage >= currentToughness;
+    }
+
     @Override
     public String toString() {
         return String.format("%s %s - %d/%d", getName(), getManaCost().toDisplayString(), currentPower, currentToughness);
@@ -109,6 +148,8 @@ public class CreatureCard extends PermanentCard {
         if (hasFlying) sb.append("Flying ");
         if (hasVigilance) sb.append("Vigilance ");
         if (hasTrample) sb.append("Trample ");
+        if (hasDeathtouch) sb.append("Deathtouch ");
+        if (hasHaste) sb.append("Haste ");
         return sb.toString().trim();
     }
 }

@@ -123,9 +123,9 @@ public class GameFrame extends JFrame implements Game.GameListener {
         });
 
         attackButton.addActionListener(e -> {
-            GamePhase phase = game.getCurrentPhase();
-            if (phase == GamePhase.MAIN1 || phase == GamePhase.MAIN2) {
-                while (game.getCurrentPhase() != GamePhase.COMBAT_BEGIN) {
+            TurnPhase phase = game.getCurrentPhase();
+            if (phase == TurnPhase.MAIN1 || phase == TurnPhase.MAIN2) {
+                while (game.getCurrentPhase() != TurnPhase.COMBAT_START) {
                     game.nextPhase();
                 }
                 game.nextPhase();
@@ -175,7 +175,7 @@ public class GameFrame extends JFrame implements Game.GameListener {
     }
 
     private void updateButtons() {
-        GamePhase phase = game.getCurrentPhase();
+        TurnPhase phase = game.getCurrentPhase();
         Player current = game.getCurrentPlayer();
 
         nextPhaseButton.setEnabled(!game.isGameOver());
@@ -183,13 +183,13 @@ public class GameFrame extends JFrame implements Game.GameListener {
 
         attackButton.setEnabled(
             !game.isGameOver() &&
-            (phase == GamePhase.MAIN1 || phase == GamePhase.MAIN2) &&
+            (phase == TurnPhase.MAIN1 || phase == TurnPhase.MAIN2) &&
             current == game.getPlayer1()
         );
 
-        if (phase == GamePhase.DECLARE_ATTACKERS) {
+        if (phase == TurnPhase.DECLARE_ATTACKERS) {
             attackButton.setText("End Declare Attackers");
-        } else if (phase == GamePhase.DECLARE_BLOCKERS) {
+        } else if (phase == TurnPhase.DECLARE_BLOCKERS) {
             attackButton.setText("End Declare Blockers");
         } else {
             attackButton.setText("Enter Combat");
@@ -201,8 +201,8 @@ public class GameFrame extends JFrame implements Game.GameListener {
         Player current = game.getCurrentPlayer();
         if (current != game.getPlayer1()) return false;
 
-        GamePhase phase = game.getCurrentPhase();
-        if (phase != GamePhase.MAIN1 && phase != GamePhase.MAIN2) return false;
+        TurnPhase phase = game.getCurrentPhase();
+        if (phase != TurnPhase.MAIN1 && phase != TurnPhase.MAIN2) return false;
 
         if (card instanceof LandCard) {
             return true;
@@ -223,8 +223,8 @@ public class GameFrame extends JFrame implements Game.GameListener {
     }
 
     public boolean isInCombatPhase() {
-        GamePhase phase = game.getCurrentPhase();
-        return phase == GamePhase.DECLARE_ATTACKERS || phase == GamePhase.DECLARE_BLOCKERS;
+        TurnPhase phase = game.getCurrentPhase();
+        return phase == TurnPhase.DECLARE_ATTACKERS || phase == TurnPhase.DECLARE_BLOCKERS;
     }
 
     public void onCardClicked(Card card) {
@@ -232,8 +232,8 @@ public class GameFrame extends JFrame implements Game.GameListener {
         Player current = game.getCurrentPlayer();
         if (current != game.getPlayer1()) return;
 
-        GamePhase phase = game.getCurrentPhase();
-        if (phase != GamePhase.MAIN1 && phase != GamePhase.MAIN2) return;
+        TurnPhase phase = game.getCurrentPhase();
+        if (phase != TurnPhase.MAIN1 && phase != TurnPhase.MAIN2) return;
 
         boolean played = false;
 
@@ -261,10 +261,10 @@ public class GameFrame extends JFrame implements Game.GameListener {
 
     public void onOwnCreatureClicked(CreatureCard creature) {
         if (game.isGameOver()) return;
-        GamePhase phase = game.getCurrentPhase();
+        TurnPhase phase = game.getCurrentPhase();
 
-        if (phase == GamePhase.DECLARE_ATTACKERS && creature.canAttack()) {
-            game.declareAttacker(creature);
+        if (phase == TurnPhase.DECLARE_ATTACKERS && creature.canAttack()) {
+            game.declareAttacker(creature, game.getCurrentPlayer().getOpponent());
             appendLog("Declare " + creature.getName() + " attacks");
             refresh();
         }
@@ -286,7 +286,7 @@ public class GameFrame extends JFrame implements Game.GameListener {
     }
 
     @Override
-    public void onPhaseChange(GamePhase phase, Player currentPlayer) {
+    public void onPhaseChange(TurnPhase phase, Player currentPlayer) {
         appendLog("Phase: " + phase.getName() + " - " + currentPlayer.getName() + "'s turn");
         refresh();
     }

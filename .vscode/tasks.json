@@ -1,0 +1,77 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "compile-main",
+            "type": "shell",
+            "command": "javac",
+            "args": [
+                "-d", "out",
+                "-sourcepath", "src/main/java",
+                "@src-main-sources.txt"
+            ],
+            "problemMatcher": ["$javac"],
+            "group": "build",
+            "detail": "Compile main sources"
+        },
+        {
+            "label": "run-tests",
+            "type": "shell",
+            "command": "${env:JUNIT_PLATFORM}",
+            "args": [
+                "--class-path", "test-classes:out",
+                "--scan-classpath"
+            ],
+            "problemMatcher": [],
+            "group": "test",
+            "detail": "Run all unit tests",
+            "dependsOn": ["compile-tests"]
+        },
+        {
+            "label": "compile-tests",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "JUNIT=~/.m2/repository/org/junit/jupiter/junit-jupiter-api/5.9.3/junit-jupiter-api-5.9.3.jar && " +
+                "APIG=~/.m2/repository/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar && " +
+                "OPENTEST=~/.m2/repository/org/opentest4j/opentest4j/1.2.0/opentest4j-1.2.0.jar && " +
+                "rm -rf test-classes && mkdir test-classes && " +
+                "for f in $(find src/test/java -name '*.java'); do " +
+                "  javac -d test-classes -cp \"$JUNIT:$APIG:$OPENTEST\" " +
+                "    -sourcepath 'src/main/java;src/test/java' \"$f\"; done"
+            ],
+            "problemMatcher": ["$javac"],
+            "group": "test",
+            "detail": "Compile test sources"
+        },
+        {
+            "label": "download-junit",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "test -f ~/junit-platform-console-standalone.jar || " +
+                "curl -L -o ~/junit-platform-console-standalone.jar " +
+                "'https://repo1.maven.org/maven2/org/junit/platform/junit-platform-console-standalone/1.9.3/junit-platform-console-standalone-1.9.3.jar'"
+            ],
+            "problemMatcher": [],
+            "group": "none",
+            "detail": "Download JUnit Platform Console (one-time)"
+        },
+        {
+            "label": "build-all",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "rm -rf out test-classes && mkdir out test-classes && " +
+                "find src/main/java -name '*.java' > src-main-sources.txt && " +
+                "echo 'Main compiled:' && ls out/com/mtg/**/*.class 2>/dev/null | wc -l"
+            ],
+            "problemMatcher": ["$javac"],
+            "group": "build",
+            "detail": "Clean rebuild main sources"
+        }
+    ]
+}

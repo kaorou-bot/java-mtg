@@ -1,0 +1,22 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Run MTG Battle",
+            "request": "launch",
+            "mainClass": "com.mtg.MtgBattle",
+            "projectName": "mtg-battle",
+            "console": "externalTerminal"
+        },
+        {
+            "type": "java",
+            "name": "Debug MTG Battle",
+            "request": "launch",
+            "mainClass": "com.mtg.MtgBattle",
+            "projectName": "mtg-battle",
+            "console": "externalTerminal",
+            "preLaunchTask": "compile-main"
+        }
+    ]
+}

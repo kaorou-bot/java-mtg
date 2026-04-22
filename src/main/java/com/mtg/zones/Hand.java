@@ -8,24 +8,38 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Hand represents a player's hand of cards.
+ * Hand - 手牌，表示玩家持有的手牌。
  *
- * Rule 402.1: The hand is where a player holds cards that have been drawn.
- * Rule 402.2: Each player has a maximum hand size, normally seven.
- * A player may have any number of cards in hand, but must discard down to
- * maximum hand size during the cleanup step.
- * Rule 402.3: A player may arrange their hand in any convenient fashion
- * and look at it at any time. A player can't look at another player's hand.
+ * 【功能说明】
+ * - 存储玩家当前持有的手牌
+ * - 实现 Zone 接口
+ *
+ * 【规则依据】
+ * - Rule 402.1: 手牌是玩家持有已抽取卡牌的地方
+ * - Rule 402.2: 每个玩家有手牌上限，通常为7张
+ *   玩家可以有任意数量手牌，但在清理步骤必须弃牌到手牌上限
+ * - Rule 402.3: 玩家可以任意方式整理手牌并随时查看，其他玩家不能查看
  */
 public class Hand implements Zone {
-    private final Player owner;
-    private final List<Card> cards;
-    private final int maxSize;
+    private final Player owner;  // 拥有者
+    private final List<Card> cards;  // 手牌列表
+    private final int maxSize;  // 手牌上限
 
+    /**
+     * 使用默认手牌上限创建手牌。
+     *
+     * @param owner 拥有者
+     */
     public Hand(Player owner) {
         this(owner, 7);
     }
 
+    /**
+     * 创建手牌。
+     *
+     * @param owner 拥有者
+     * @param maxSize 手牌上限
+     */
     public Hand(Player owner, int maxSize) {
         this.owner = owner;
         this.cards = new ArrayList<>();
@@ -33,9 +47,13 @@ public class Hand implements Zone {
     }
 
     /**
-     * Add a card to hand.
-     * Rule 402.1/402.2: Player may have any number of cards, but must
-     * discard down to max hand size during cleanup (Rule 514.1).
+     * 添加牌到手牌。
+     *
+     * 【规则依据】
+     * - Rule 402.1/402.2: 玩家可以有任意数量手牌
+     *   但必须在清理步骤弃牌到手牌上限（Rule 514.1）
+     *
+     * @param card 要添加的牌
      */
     public void add(Card card) {
         if (!cards.contains(card)) {
@@ -44,8 +62,12 @@ public class Hand implements Zone {
     }
 
     /**
-     * Rule 402.2: Discard down to max hand size.
-     * Returns list of discarded cards.
+     * 弃牌到手牌上限。
+     *
+     * 【规则依据】
+     * - Rule 402.2: 弃多余手牌
+     *
+     * @return 被弃置的牌列表
      */
     public List<Card> discardDownToMax() {
         List<Card> discarded = new ArrayList<>();
@@ -56,28 +78,36 @@ public class Hand implements Zone {
     }
 
     /**
-     * Check if hand is full.
+     * 检查手牌是否已满。
+     *
+     * @return 是否已满
      */
     public boolean isFull() {
         return cards.size() >= maxSize;
     }
 
     /**
-     * Get maximum hand size.
+     * 获取手牌上限。
+     *
+     * @return 手牌上限
      */
     public int getMaxSize() {
         return maxSize;
     }
 
     /**
-     * Get a copy of cards in hand.
-     * Rule 402.3: Player can look at their hand at any time.
+     * 获取手牌副本。
+     *
+     * 【规则依据】
+     * - Rule 402.3: 玩家可以随时查看手牌
+     *
+     * @return 手牌列表副本
      */
     public List<Card> getCards() {
         return new ArrayList<>(cards);
     }
 
-    // ========== Zone Implementation ==========
+    // ========== Zone 接口实现 ==========
 
     @Override
     public String getName() {
@@ -86,7 +116,7 @@ public class Hand implements Zone {
 
     @Override
     public boolean isPublic() {
-        return false;  // Hidden zone
+        return false;  // 隐藏区域
     }
 
     @Override

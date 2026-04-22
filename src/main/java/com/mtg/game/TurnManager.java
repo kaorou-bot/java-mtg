@@ -8,28 +8,65 @@ import com.mtg.zones.Battlefield;
 import java.util.*;
 
 /**
- * TurnManager handles turn structure according to Rules 500-514.
+ * TurnManager - 回合管理器，管理万智牌游戏的回合流程和战斗宣告。
  *
- * Turn structure:
- * Beginning Phase → Precombat Main Phase → Combat Phase →
- * Postcombat Main Phase → Ending Phase
+ * 【功能说明】
+ * - 管理回合的14个阶段/步骤
+ * - 管理战斗宣告（攻击/阻挡）
+ * - 处理战斗伤害结算
+ * - 管理回合切换
+ *
+ * 【回合结构】
+ * ```
+ * 开始阶段 → 主要阶段1 → 战斗阶段 → 主要阶段2 → 结束阶段
+ *   ↓              ↓            ↓              ↓           ↓
+ * UNTAAP      MAIN1      COMBAT_START     MAIN2       END
+ * UPKEEP                  DECLARE_ATK                  CLEANUP
+ * DRAW                   DECLARE_DEF
+ *                        COMBAT_DMG
+ *                        COMBAT_END
+ * ```
+ *
+ * 【规则依据】
+ * - Rule 500: 回合概述
+ * - Rule 501: 开始阶段
+ * - Rule 502: 重置步骤
+ * - Rule 503: 维持步骤
+ * - Rule 504: 抽牌步骤
+ * - Rule 505: 主要阶段
+ * - Rule 506-511: 战斗阶段
+ * - Rule 512-514: 结束阶段
+ *
+ * 【设计决策】
+ * - 战斗宣告通过 DeclaredAttacker/DeclaredBlocker 记录
+ * - 战斗伤害在 resolveCombatDamage() 中计算
+ * - switchTurn() 会增加回合数并清空战斗状态
  */
 public class TurnManager {
-    private final Game game;
-    private Battlefield battlefield;
-    private Player activePlayer;
-    private Player nonActivePlayer;
-    private TurnPhase currentPhase;
-    private List<DeclaredAttacker> attackers;
-    private List<DeclaredBlocker> blockers;
-    private int turnNumber;
+    private final Game game;                      // 游戏引用
+    private Battlefield battlefield;                // 战场引用
+    private Player activePlayer;                  // 主动玩家（当前回合玩家）
+    private Player nonActivePlayer;               // 非主动玩家
+    private TurnPhase currentPhase;               // 当前阶段
+    private List<DeclaredAttacker> attackers;    // 宣告的攻击生物列表
+    private List<DeclaredBlocker> blockers;      // 宣告的阻挡生物列表
+    private int turnNumber;                     // 回合数
+
+    // ========== 内部类：战斗宣告记录 ==========
 
     /**
-     * Represents a declared attacker with its target.
+     * 宣告的攻击者记录。
+     *
+     * 【用途】
+     * - 记录哪个生物攻击哪个目标
+     * - 用于战斗伤害计算
+     *
+     * @param creature 攻击的生物
+     * @param target 攻击目标（对手玩家或鹏洛客）
      */
     public static class DeclaredAttacker {
-        public final CreatureCard creature;
-        public final Player target;  // Can be opponent player or planeswalker
+        public final CreatureCard creature;  // 攻击生物
+        public final Player target;         // 攻击目标（对手或鹏洛客）
 
         public DeclaredAttacker(CreatureCard creature, Player target) {
             this.creature = creature;
@@ -38,11 +75,18 @@ public class TurnManager {
     }
 
     /**
-     * Represents a declared blocker with its attacker.
+     * 宣告的阻挡者记录。
+     *
+     * 【用途】
+     * - 记录哪个生物阻挡哪个攻击者
+     * - 用于战斗伤害计算
+     *
+     * @param blocker 阻挡生物
+     * @param attacker 被阻挡的攻击生物
      */
     public static class DeclaredBlocker {
-        public final CreatureCard blocker;
-        public final CreatureCard attacker;
+        public final CreatureCard blocker;  // 阻挡生物
+        public final CreatureCard attacker; // 被阻挡的攻击生物
 
         public DeclaredBlocker(CreatureCard blocker, CreatureCard attacker) {
             this.blocker = blocker;
@@ -50,6 +94,13 @@ public class TurnManager {
         }
     }
 
+    // ========== 构造函数 ==========
+
+    /**
+     * 创建回合管理器。
+     *
+     * @param game 游戏引用（用于访问优先权系统等）
+     */
     public TurnManager(Game game) {
         this.game = game;
         this.attackers = new ArrayList<>();
@@ -59,17 +110,35 @@ public class TurnManager {
     }
 
     /**
-     * Set the battlefield reference. Required before using turn management
-     * in tests or when Game is not fully initialized.
+     * 设置战场引用。
+     *
+     * 【用途】
+     * - 允许 TurnManager 独立于 Game 测试
+     * - 在 Game.startGame() 中设置
+     *
+     * @param battlefield 战场
      */
     public void setBattlefield(Battlefield battlefield) {
         this.battlefield = battlefield;
     }
 
-    // ========== Turn Control ==========
+    // ========== 回合控制 ==========
 
     /**
-     * Start a new turn for the active player.
+     * 开始新回合。
+     *
+     * 【执行步骤】
+     * 1. 设置主动/非主动玩家
+     * 2. 清空战斗状态
+     * 3. 增加回合数
+     * 4. 重置生物状态
+     * 5. 开始重置步骤
+     *
+     * 【规则依据】
+     * - Rule 500.4: 回合开始时，清除持续到回合结束的效应
+     * - Rule 502: 重置步骤
+     *
+     * @param player 主动玩家
      */
     public void startTurn(Player player) {
         this.activePlayer = player;
@@ -78,23 +147,32 @@ public class TurnManager {
         this.blockers.clear();
         turnNumber++;
 
-        // Reset creatures
+        // 重置所有生物状态
         Battlefield bf = battlefield;
         for (CreatureCard c : bf.getCreatures()) {
             if (c.getController().equals(activePlayer)) {
-                c.clearSummoningSickness();
-                c.resetForTurn();
+                c.clearSummoningSickness(); // 清除召唤 sickness
+                c.resetForTurn();           // 重置力量/防御力
             }
         }
 
-        // Rule 500.4: Effects that last until a step/phase expire
-        // (Implementation would track and expire effects)
+        // Rule 500.4: 清除持续到回合结束的效应（简化处理）
 
         beginUntapStep();
     }
 
     /**
-     * Advance to the next phase.
+     * 推进到下一阶段。
+     *
+     * 【阶段顺序】
+     * UNTAAP → UPKEEP → DRAW → MAIN1 →
+     * COMBAT_START → DECLARE_ATTACKERS → DECLARE_BLOCKERS →
+     * COMBAT_DAMAGE → COMBAT_END → MAIN2 → END → CLEANUP → UNTAAP
+     *
+     * 【规则依据】
+     * - Rule 500.2: 堆叠空且所有人 pass 时阶段结束
+     *
+     * @return 新的当前阶段
      */
     public TurnPhase advancePhase() {
         switch (currentPhase) {
@@ -119,68 +197,95 @@ public class TurnManager {
     }
 
     /**
-     * Switch to the next player's turn.
-     * Also increments turn number and starts the new turn.
+     * 切换到对手回合。
+     *
+     * 【执行内容】
+     * 1. 交换主动/非主动玩家
+     * 2. 增加回合数
+     * 3. 清空战斗状态
+     * 4. 执行重置步骤
+     *
+     * 【规则依据】
+     * - Rule 500.4: 回合切换
+     *
+     * 【重要】
+     * - switchTurn() 会增加 turnNumber
+     * - 会清空 attackers 和 blockers
      */
     public void switchTurn() {
         Player temp = activePlayer;
         activePlayer = nonActivePlayer;
         nonActivePlayer = temp;
         turnNumber++;
-        // Clear combat state for new turn
+        // 清空战斗状态
         attackers.clear();
         blockers.clear();
         beginUntapStep();
     }
 
-    // ========== Phase Begin Methods ==========
+    // ========== 阶段开始方法 ==========
 
     /**
-     * Rule 502: Untap Step
-     * - Phase in/out permanents
-     * - Day/night check
-     * - Untap permanents
-     * - No priority granted
+     * 开始重置步骤（Untap Step）。
+     *
+     * 【执行内容】
+     * 1. 主动玩家重置所有永久物
+     *
+     * 【规则依据】
+     * - Rule 502.3: 重置所有永久物
+     * - Rule 502.4: 重置步骤没有优先权，不会触发异能
+     *
+     * 【简化处理】
+     * - 相位（Day/Night）未实现
      */
     public void beginUntapStep() {
-        // Rule 502.3: Untap all permanents
         Battlefield bf = battlefield;
         for (PermanentCard p : bf.getPermanents()) {
             if (p.getController().equals(activePlayer)) {
-                p.untap();
+                p.untap(); // 重置（取消横置）
             }
         }
-
-        // Rule 502.4: No priority during untap step
-        // Priority will be granted when moving to upkeep
+        // Rule 502.4: 无优先权，不触发异能
     }
 
     /**
-     * Rule 503: Upkeep Step
-     * - Trigger abilities from untap step
-     * - Active player gets priority
+     * 开始维持步骤（Upkeep Step）。
+     *
+     * 【规则依据】
+     * - Rule 503.1a: 维持步骤触发的异能在这里进入堆叠
+     * - Rule 117.3a: 主动玩家获得优先权
+     *
+     * 【简化处理】
+     * - 触发异能管理未完整实现
      */
     public void beginUpkeepStep() {
-        // Rule 503.1a: Triggered abilities from untap step and upkeep
-        // would be queued here
+        // Rule 503.1a: 触发异能排队
         game.getPrioritySystem().grantPriorityToActive();
     }
 
     /**
-     * Rule 504: Draw Step
-     * - Draw a card (turn-based action)
-     * - Active player gets priority
+     * 开始抽牌步骤（Draw Step）。
+     *
+     * 【执行内容】
+     * 1. 主动玩家抽一张牌（回合动作）
+     * 2. 主动玩家获得优先权
+     *
+     * 【规则依据】
+     * - Rule 504.1: 主动玩家抽一张牌（回合动作）
+     * - Rule 504.2: 然后主动玩家获得优先权
      */
     public void beginDrawStep() {
-        // Rule 504.1: Active player draws a card
+        // Rule 504.1: 回合动作，自动抽牌
         game.drawCard(activePlayer);
 
-        // Rule 504.2: Active player gets priority
+        // Rule 504.2: 主动玩家获得优先权
         game.getPrioritySystem().grantPriorityToActive();
     }
 
     /**
-     * Begin main phase.
+     * 开始主要阶段。
+     *
+     * @param main MAIN1 或 MAIN2
      */
     public void beginMainPhase(TurnPhase main) {
         currentPhase = main;
@@ -188,46 +293,60 @@ public class TurnManager {
     }
 
     /**
-     * Rule 507: Beginning of Combat Step
-     * - Select defending player (in 1v1, it's automatic)
-     * - Active player gets priority
+     * 开始战斗阶段（Beginning of Combat）。
+     *
+     * 【规则依据】
+     * - Rule 507.2: 主动玩家获得优先权
+     * - Rule 506.2: 在1v1中，非主动玩家是防守方
      */
     public void beginCombat() {
-        // Rule 506.2: In 1v1, non-active player is defending
-        // Rule 507.2: Active player gets priority
+        // Rule 507.2: 主动玩家获得优先权
         game.getPrioritySystem().grantPriorityToActive();
     }
 
     /**
-     * Rule 508: Declare Attackers Step
-     * - Turn-based action, no priority initially
-     * - Active player declares attackers
+     * 开始宣告攻击者步骤（Declare Attackers）。
+     *
+     * 【规则依据】
+     * - Rule 508.1: 宣告攻击者（回合动作）
+     * - Rule 508.1h: 完成后主动玩家获得优先权
+     *
+     * 【简化处理】
+     * - 攻击限制和要求检查简化
      */
     public void beginDeclareAttackers() {
-        // Rule 508.1: Declare attackers (turn-based action)
-        // After declaration, active player gets priority
+        // Rule 508.1: 玩家宣告攻击者
+        // 完成后主动玩家获得优先权
         game.getPrioritySystem().grantPriorityToActive();
     }
 
     /**
-     * Rule 509: Declare Blockers Step
-     * - Non-active player declares blockers
-     * - Non-active player gets priority after
+     * 开始宣告阻挡者步骤（Declare Blockers）。
+     *
+     * 【规则依据】
+     * - Rule 509.1: 非主动玩家宣告阻挡者
+     * - Rule 509.1h: 完成后主动玩家获得优先权
      */
     public void beginDeclareBlockers() {
-        // Rule 509.1: Declare blockers
         if (game != null) {
             game.getPrioritySystem().grantPriorityToActive();
         }
     }
 
     /**
-     * Rule 510: Combat Damage Step
-     * - Assign and deal combat damage
-     * - Handle first strike
+     * 解决战斗伤害。
+     *
+     * 【执行步骤】
+     * 1. 检查是否有先攻/双重打击生物
+     * 2. 如果有：先解决先攻伤害 → 正常伤害
+     * 3. 如果没有：直接解决正常伤害
+     *
+     * 【规则依据】
+     * - Rule 510.4: 先攻生物先分配伤害
+     * - Rule 510.5: 双重打击生物在两个伤害步骤都分配
      */
     public void resolveCombatDamage() {
-        // First strike check (Rule 510.4)
+        // 1. 检查先攻/双重打击
         boolean hasFirstStrike = false;
         for (DeclaredAttacker da : attackers) {
             if (da.creature.hasFirstStrike() || da.creature.hasDoubleStrike()) {
@@ -242,44 +361,57 @@ public class TurnManager {
             }
         }
 
+        // 2. 根据是否有先攻生物决定伤害顺序
         if (hasFirstStrike) {
-            // First strike combat damage
+            // 先解决先攻伤害
             resolveCombatDamage(false);
-            // Add second combat damage step
+            // 添加先攻伤害步骤
             currentPhase = TurnPhase.COMBAT_DAMAGE_FIRST;
         } else {
+            // 直接解决正常伤害
             resolveCombatDamage(true);
             currentPhase = TurnPhase.COMBAT_END;
         }
     }
 
     /**
-     * Resolve combat damage for all attackers.
+     * 解决战斗伤害（实际计算）。
+     *
+     * 【伤害分配规则】
+     * 1. 无阻挡的攻击生物 → 伤害给目标（玩家/鹏洛客）
+     * 2. 有阻挡的攻击生物 → 伤害给阻挡者
+     * 3. 践踏生物 → 超出部分给玩家
+     *
+     * 【阻挡者伤害】
+     * - 阻挡生物对攻击生物造成伤害
+     *
+     * @param isNormalDamage 是否是正常伤害（vs 先攻伤害）
      */
     private void resolveCombatDamage(boolean isNormalDamage) {
         Battlefield bf = battlefield;
 
+        // 1. 攻击生物分配伤害
         for (DeclaredAttacker da : attackers) {
             CreatureCard attacker = da.creature;
             int damage = attacker.getCurrentPower();
 
-            // Find if attacker is blocked
+            // 查找阻挡此攻击者的阻挡生物
             List<DeclaredBlocker> blocking = getBlockersFor(attacker);
 
             if (blocking.isEmpty()) {
-                // Unblocked - damage to defending player/planeswalker
+                // 无阻挡：伤害给目标
                 if (attacker.hasTrample()) {
-                    // Trample: can assign excess to player
+                    // 践踏：全部伤害给目标
                     da.target.modifyLife(-damage);
                 } else {
                     da.target.modifyLife(-damage);
                 }
             } else {
-                // Blocked - damage to blockers
+                // 有阻挡：伤害给阻挡者
                 for (DeclaredBlocker db : blocking) {
                     CreatureCard blocker = db.blocker;
                     if (attacker.hasTrample()) {
-                        // Assign lethal to first blocker, rest to player
+                        // 践踏：分配给阻挡者，超过的给目标
                         blocker.addDamage(damage);
                         int excess = damage - blocker.getToughness();
                         if (excess > 0) {
@@ -292,7 +424,7 @@ public class TurnManager {
             }
         }
 
-        // Blockers deal damage to attackers
+        // 2. 阻挡生物对攻击生物造成伤害
         for (DeclaredBlocker db : blockers) {
             if (!attackers.contains(db.attacker)) continue;
             CreatureCard blocker = db.blocker;
@@ -301,6 +433,12 @@ public class TurnManager {
         }
     }
 
+    /**
+     * 获取阻挡特定攻击者的所有阻挡生物。
+     *
+     * @param attacker 攻击生物
+     * @return 阻挡生物列表
+     */
     private List<DeclaredBlocker> getBlockersFor(CreatureCard attacker) {
         List<DeclaredBlocker> result = new ArrayList<>();
         for (DeclaredBlocker db : blockers) {
@@ -312,50 +450,72 @@ public class TurnManager {
     }
 
     /**
-     * Rule 511: End of Combat Step
-     * - Remove creatures from combat
-     * Note: Priority is granted by Game.nextPhase() after this method returns.
+     * 结束战斗步骤。
+     *
+     * 【规则依据】
+     * - Rule 511.3: 移除所有生物的"战斗中"状态
+     * - Rule 511.4: 主动玩家获得优先权
      */
     public void endCombat() {
-        // Rule 511.3: Remove all creatures from combat
+        // Rule 511.3: 移除战斗状态
         attackers.clear();
         blockers.clear();
     }
 
     /**
-     * Rule 513: End Step
-     * - Ending step triggered abilities
+     * 开始结束步骤（End Step）。
+     *
+     * 【规则依据】
+     * - Rule 513.1: 结束步骤触发的异能
+     * - Rule 117.3a: 主动玩家获得优先权
      */
     public void beginEndStep() {
         game.getPrioritySystem().grantPriorityToActive();
     }
 
     /**
-     * Rule 514: Cleanup Step
-     * - Discard down to max hand size
-     * - Remove damage
-     * - Check state-based actions
+     * 开始清理步骤（Cleanup Step）。
+     *
+     * 【执行内容】
+     * 1. 弃牌到最大手牌数
+     * 2. 清除所有生物的伤害标记
+     *
+     * 【规则依据】
+     * - Rule 514.1: 弃多余手牌（需要玩家选择）
+     * - Rule 514.2: 清除伤害标记
+     *
+     * 【简化处理】
+     * - 弃牌需要UI选择，这里简化为自动弃最后几张
      */
     public void beginCleanupStep() {
-        // Rule 514.1: Discard excess cards
+        // Rule 514.1: 弃牌到手牌上限
         var hand = game.getZoneManager().getHand(activePlayer);
         while (hand.size() > 7) {
-            // Would need UI to choose which cards to discard
-            // For now, discard from end
+            // 需要UI选择弃哪些牌
+            // 简化：丢弃最后一张
         }
 
-        // Rule 514.2: Remove damage
+        // Rule 514.2: 清除伤害标记
         Battlefield bf = battlefield;
         for (CreatureCard c : bf.getCreatures()) {
             c.clearDamage();
         }
     }
 
-    // ========== Combat Declaration ==========
+    // ========== 战斗宣告 ==========
 
     /**
-     * Declare a creature as an attacker.
-     * Rule 508.1: Must be untapped, not summoning sick (unless haste).
+     * 检查生物是否可以攻击。
+     *
+     * 【条件】
+     * - 必须在宣告攻击者步骤
+     * - 必须是自己的生物
+     * - 不能已横置
+     * - 不能有召唤 sickness（除非有敏捷）
+     * - 不能已在攻击列表中
+     *
+     * @param creature 要检查的生物
+     * @return 是否可以攻击
      */
     public boolean canDeclareAttacker(CreatureCard creature) {
         if (currentPhase != TurnPhase.DECLARE_ATTACKERS) return false;
@@ -366,6 +526,12 @@ public class TurnManager {
         return true;
     }
 
+    /**
+     * 宣告攻击者。
+     *
+     * @param creature 攻击的生物
+     * @param target 攻击目标
+     */
     public void declareAttacker(CreatureCard creature, Player target) {
         if (canDeclareAttacker(creature)) {
             creature.tap();
@@ -374,8 +540,15 @@ public class TurnManager {
     }
 
     /**
-     * Declare a creature as a blocker.
-     * Rule 509.1: Must be untapped.
+     * 检查生物是否可以阻挡。
+     *
+     * 【条件】
+     * - 必须在宣告阻挡者步骤
+     * - 必须是对手的生物
+     * - 不能已横置
+     *
+     * @param creature 要检查的生物
+     * @return 是否可以阻挡
      */
     public boolean canDeclareBlocker(CreatureCard creature) {
         if (currentPhase != TurnPhase.DECLARE_BLOCKERS) return false;
@@ -384,6 +557,12 @@ public class TurnManager {
         return true;
     }
 
+    /**
+     * 宣告阻挡者。
+     *
+     * @param creature 阻挡的生物
+     * @param attacker 要阻挡的攻击生物
+     */
     public void declareBlocker(CreatureCard creature, CreatureCard attacker) {
         if (canDeclareBlocker(creature)) {
             creature.tap();
@@ -391,6 +570,9 @@ public class TurnManager {
         }
     }
 
+    /**
+     * 检查生物是否已在攻击列表中。
+     */
     private boolean isAlreadyAttacking(CreatureCard creature) {
         for (DeclaredAttacker da : attackers) {
             if (da.creature.equals(creature)) return true;
@@ -398,12 +580,24 @@ public class TurnManager {
         return false;
     }
 
-    // ========== Getters ==========
+    // ========== Getter 方法 ==========
 
     public Player getActivePlayer() { return activePlayer; }
     public Player getNonActivePlayer() { return nonActivePlayer; }
     public TurnPhase getCurrentPhase() { return currentPhase; }
     public int getTurnNumber() { return turnNumber; }
-    public List<DeclaredAttacker> getAttackers() { return new ArrayList<>(attackers); }
-    public List<DeclaredBlocker> getBlockers() { return new ArrayList<>(blockers); }
+
+    /**
+     * 获取所有宣告的攻击者（副本）。
+     */
+    public List<DeclaredAttacker> getAttackers() {
+        return new ArrayList<>(attackers);
+    }
+
+    /**
+     * 获取所有宣告的阻挡者（副本）。
+     */
+    public List<DeclaredBlocker> getBlockers() {
+        return new ArrayList<>(blockers);
+    }
 }

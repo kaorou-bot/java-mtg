@@ -12,18 +12,29 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * TriggeredAbilityManager handles triggered abilities according to Rule 603.
+ * TriggeredAbilityManager - 触发式异能管理器（Rule 603）。
  *
- * Rule 603.2: Abilities trigger at the beginning of each step/phase.
- * Rule 603.3: Each ability is checked separately and goes on the stack independently.
- * Rule 603.6: Abilities are put on the stack in APNAP order (Active Player first,
- * then Non-Active Player, and so on).
+ * 【功能说明】
+ * - 管理所有注册的触发式异能
+ * - 检查触发条件
+ * - 将触发的异能放入堆叠
+ * - 按 APNAP 顺序排序
+ *
+ * 【规则依据】
+ * - Rule 603.2: 异能在每个步骤/阶段开始时触发
+ * - Rule 603.3: 每个异能独立检查和进入堆叠
+ * - Rule 603.6: 异能按 APNAP 顺序放入堆叠（主动玩家先，然后非主动玩家）
  */
 public class TriggeredAbilityManager {
-    private Game game;
-    private Map<Player, List<TriggeredAbility>> abilityQueue;
-    private Map<Card, List<TriggeredAbility>> registeredAbilities;
+    private Game game;  // 游戏引用
+    private Map<Player, List<TriggeredAbility>> abilityQueue;  // 异能队列
+    private Map<Card, List<TriggeredAbility>> registeredAbilities;  // 已注册的异能
 
+    /**
+     * 创建触发式异能管理器。
+     *
+     * @param game 游戏
+     */
     public TriggeredAbilityManager(Game game) {
         this.game = game;
         this.abilityQueue = new HashMap<>();
@@ -31,7 +42,9 @@ public class TriggeredAbilityManager {
     }
 
     /**
-     * Register a triggered ability from a card.
+     * 注册卡牌的触发式异能。
+     *
+     * @param ability 要注册的异能
      */
     public void registerAbility(TriggeredAbility ability) {
         Card source = ability.getSourceCard();
@@ -39,24 +52,32 @@ public class TriggeredAbilityManager {
     }
 
     /**
-     * Remove abilities from a card that left the battlefield.
+     * 取消注册卡牌的所有异能（卡牌离开战场时调用）。
+     *
+     * @param card 离开战场的卡牌
      */
     public void unregisterAbilitiesFromCard(Card card) {
         registeredAbilities.remove(card);
     }
 
     /**
-     * Check for triggered abilities at the beginning of a phase/step.
-     * Rule 603.2: Trigger conditions are checked continuously.
-     * This is called at each step/phase transition.
+     * 检查阶段开始时触发的异能。
+     *
+     * 【规则依据】
+     * - Rule 603.2: 触发条件持续检查
+     * - 在每个步骤/阶段转换时调用
+     *
+     * @param phase 当前阶段
+     * @param activePlayer 主动玩家
+     * @return 触发的异能列表
      */
     public List<TriggeredAbility> checkTriggeredAbilities(TurnPhase phase, Player activePlayer) {
         List<TriggeredAbility> triggered = new ArrayList<>();
 
-        // Check all registered abilities
+        // 检查所有注册的异能
         for (List<TriggeredAbility> abilities : registeredAbilities.values()) {
             for (TriggeredAbility ability : abilities) {
-                // Reset memory for new trigger check
+                // 重置记忆以进行新的触发检查
                 if (ability instanceof OnPhaseBeginAbility) {
                     OnPhaseBeginAbility phaseAbility = (OnPhaseBeginAbility) ability;
                     if (phaseAbility.matchesPhase(phase)) {
@@ -66,14 +87,19 @@ public class TriggeredAbilityManager {
             }
         }
 
-        // Sort by APNAP order (Rule 603.3d)
+        // 按 APNAP 顺序排序（Rule 603.3d）
         sortByAPNAP(triggered, activePlayer);
 
         return triggered;
     }
 
     /**
-     * Check for abilities triggered by zone changes.
+     * 检查区域转换触发的异能。
+     *
+     * @param card 区域转换的卡牌
+     * @param fromZone 原区域
+     * @param toZone 新区域
+     * @return 触发的异能列表
      */
     public List<TriggeredAbility> checkZoneChangeAbilities(Card card, String fromZone, String toZone) {
         List<TriggeredAbility> triggered = new ArrayList<>();
@@ -93,7 +119,12 @@ public class TriggeredAbilityManager {
     }
 
     /**
-     * Check for abilities triggered by damage dealt.
+     * 检查伤害触发异能。
+     *
+     * @param source 伤害来源（生物）
+     * @param target 目标玩家
+     * @param amount 伤害量
+     * @return 触发的异能列表
      */
     public List<TriggeredAbility> checkDamageAbilities(CreatureCard source, Player target, int amount) {
         List<TriggeredAbility> triggered = new ArrayList<>();
@@ -113,17 +144,25 @@ public class TriggeredAbilityManager {
     }
 
     /**
-     * Put triggered abilities on the stack.
+     * 将触发的异能放入堆叠。
+     *
+     * @param abilities 要放入堆叠的异能列表
      */
     public void putOnStack(List<TriggeredAbility> abilities) {
         for (TriggeredAbility ability : abilities) {
-            // Create a stack item for this triggered ability
+            // 为异能创建堆叠项目
             game.getZoneManager().getStack().pushAbility(ability);
         }
     }
 
     /**
-     * Sort abilities by APNAP order.
+     * 按 APNAP 顺序排序异能。
+     *
+     * 【规则依据】
+     * - Rule 603.3d: 异能按 APNAP 顺序放入堆叠
+     *
+     * @param abilities 要排序的异能列表
+     * @param activePlayer 主动玩家
      */
     private void sortByAPNAP(List<TriggeredAbility> abilities, Player activePlayer) {
         abilities.sort((a1, a2) -> {
@@ -140,22 +179,30 @@ public class TriggeredAbilityManager {
     }
 
     /**
-     * Clear all registered abilities.
+     * 清除所有注册的异能。
      */
     public void clear() {
         registeredAbilities.clear();
         abilityQueue.clear();
     }
 
-    // ========== Common Triggered Ability Types ==========
+    // ========== 常用触发式异能类型 ==========
 
     /**
-     * Ability that triggers at a specific phase.
-     * Example: "At the beginning of your upkeep, draw a card."
+     * 在特定阶段开始的异能。
+     *
+     * 【示例】
+     * - "At the beginning of your upkeep, draw a card."
+     *
+     * @param name 异能名称
+     * @param source 源卡牌
+     * @param controller 控制者
+     * @param phase 触发阶段
+     * @param whosePhase 谁的阶段（"your", "each", "opponent's" 等）
      */
     public static abstract class OnPhaseBeginAbility extends TriggeredAbility {
-        private TurnPhase triggerPhase;
-        private String whosePhase; // "your", "each", "opponent's", etc.
+        private TurnPhase triggerPhase;  // 触发阶段
+        private String whosePhase;  // 谁的阶段
 
         public OnPhaseBeginAbility(String name, Card source, Player controller,
                                    TurnPhase phase, String whosePhase) {
@@ -178,11 +225,18 @@ public class TriggeredAbilityManager {
     }
 
     /**
-     * Ability that triggers on zone change.
-     * Example: "When Elvish Mystic enters the battlefield, add one mana of any color."
+     * 区域转换时触发的异能。
+     *
+     * 【示例】
+     * - "When Elvish Mystic enters the battlefield, add one mana of any color."
+     *
+     * @param name 异能名称
+     * @param source 源卡牌
+     * @param controller 控制者
+     * @param triggerZone 触发区域（如 "battlefield", "graveyard"）
      */
     public static abstract class OnZoneChangeAbility extends TriggeredAbility {
-        private String triggerZone; // "battlefield", "graveyard", etc.
+        private String triggerZone;  // 触发区域
 
         public OnZoneChangeAbility(String name, Card source, Player controller,
                                     String triggerZone) {
@@ -191,7 +245,7 @@ public class TriggeredAbilityManager {
         }
 
         public boolean matchesZoneChange(Card card, String fromZone, String toZone) {
-            // Check if this ability triggered for this card and zone
+            // 检查异能是否因此卡牌和区域变化而触发
             return card.equals(getSourceCard()) &&
                    triggerZone.equals(toZone);
         }
@@ -202,14 +256,28 @@ public class TriggeredAbilityManager {
     }
 
     /**
-     * Ability that triggers when damage is dealt.
-     * Example: "Whenever Goblin Electromancer deals damage to a player, draw a card."
+     * 造成伤害时触发的异能。
+     *
+     * 【示例】
+     * - "Whenever Goblin Electromancer deals damage to a player, draw a card."
+     *
+     * @param name 异能名称
+     * @param source 源卡牌
+     * @param controller 控制者
      */
     public static abstract class OnDamageDealtAbility extends TriggeredAbility {
         public OnDamageDealtAbility(String name, Card source, Player controller) {
             super(name, source, controller);
         }
 
+        /**
+         * 检查伤害是否匹配触发条件。
+         *
+         * @param source 伤害来源
+         * @param target 目标玩家
+         * @param amount 伤害量
+         * @return 是否匹配
+         */
         public abstract boolean matchesDamage(CreatureCard source, Player target, int amount);
     }
 }

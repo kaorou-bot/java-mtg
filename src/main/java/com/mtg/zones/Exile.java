@@ -9,36 +9,45 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Exile represents the exile zone - a holding area for objects.
+ * Exile - 放逐区，用于存储被放逐对象的暂存区域。
  *
- * Rule 406.1: The exile zone is essentially a holding area for objects.
- * Some spells and abilities exile an object without any way to return that
- * object to another zone. Other spells and abilities exile an object only temporarily.
- * Rule 406.2: To exile an object is to put it into the exile zone.
- * Rule 406.3: Exiled cards are kept face up by default and may be examined
- * by any player at any time. Cards exiled face down cannot be examined
- * except when instructions allow it.
- * Rule 406.8: Previously called the "removed-from-the-game zone."
+ * 【功能说明】
+ * - 存储被放逐的卡牌
+ * - 某些咒语和异能永久放逐，有些则暂时放逐
+ * - 实现 Zone 接口
+ *
+ * 【规则依据】
+ * - Rule 406.1: 放逐区本质上是对象的暂存区域
+ * - Rule 406.2: 放逐对象就是将其放入放逐区
+ * - Rule 406.3: 默认情况下放逐的牌正面朝上保管，任意玩家可随时查看
+ *   正面朝下放逐的牌只能在规则允许时查看
+ * - Rule 406.8: 之前称为"移除游戏区域"
  */
 public class Exile implements Zone {
-    private final List<ExileEntry> entries;
+    private final List<ExileEntry> entries;  // 放逐记录列表
 
+    /**
+     * 创建放逐区。
+     */
     public Exile() {
         this.entries = new ArrayList<>();
     }
 
     /**
-     * Exile a card.
+     * 放逐一张牌。
+     *
+     * @param card 要放逐的牌
      */
     public void exile(Card card) {
         exile(card, null, false);
     }
 
     /**
-     * Exile a card with metadata.
-     * @param card The card to exile
-     * @param reason The reason for exiling (e.g., "exiled by Shadowborn Demon")
-     * @param faceDown Whether the card is exiled face down
+     * 带元数据放逐一张牌。
+     *
+     * @param card 要放逐的牌
+     * @param reason 放逐原因（如 "exiled by Shadowborn Demon"）
+     * @param faceDown 是否正面朝下放逐
      */
     public void exile(Card card, String reason, boolean faceDown) {
         ExileEntry entry = new ExileEntry(card, reason, faceDown);
@@ -46,15 +55,21 @@ public class Exile implements Zone {
     }
 
     /**
-     * Get all exile entries.
+     * 获取所有放逐记录。
+     *
+     * @return 放逐记录列表
      */
     public List<ExileEntry> getEntries() {
         return new ArrayList<>(entries);
     }
 
     /**
-     * Get all face-up exiled cards.
-     * Rule 406.3: Face-up exiled cards may be examined by any player.
+     * 获取所有正面朝上的放逐牌。
+     *
+     * 【规则依据】
+     * - Rule 406.3: 正面朝上的放逐牌任意玩家可查看
+     *
+     * @return 牌列表
      */
     public List<Card> getFaceUpCards() {
         List<Card> faceUp = new ArrayList<>();
@@ -67,14 +82,20 @@ public class Exile implements Zone {
     }
 
     /**
-     * Remove a card from exile.
+     * 从放逐区移除牌。
+     *
+     * @param card 要移除的牌
+     * @return 是否成功移除
      */
     public boolean remove(Card card) {
         return entries.removeIf(entry -> entry.card.equals(card));
     }
 
     /**
-     * Get the exile entry for a card.
+     * 获取牌的放逐记录。
+     *
+     * @param card 牌
+     * @return 放逐记录，无则返回 null
      */
     public ExileEntry getEntry(Card card) {
         for (ExileEntry entry : entries) {
@@ -86,20 +107,27 @@ public class Exile implements Zone {
     }
 
     /**
-     * Check if exile is empty.
+     * 检查放逐区是否为空。
+     *
+     * @return 是否为空
      */
     public boolean isEmpty() {
         return entries.isEmpty();
     }
 
     /**
-     * Represents an entry in the exile zone.
+     * ExileEntry - 放逐记录，表示放逐区中的一个条目。
+     *
+     * 【用途】
+     * - 记录被放逐的牌
+     * - 记录放逐原因
+     * - 记录是否正面朝下
      */
     public static class ExileEntry {
-        public final Card card;
-        public final String exileReason;
-        public final boolean faceDown;
-        public final String id;
+        public final Card card;  // 被放逐的牌
+        public final String exileReason;  // 放逐原因
+        public final boolean faceDown;  // 是否正面朝下
+        public final String id;  // 唯一标识符
 
         public ExileEntry(Card card, String exileReason, boolean faceDown) {
             this.card = card;
@@ -121,7 +149,7 @@ public class Exile implements Zone {
         }
     }
 
-    // ========== Zone Implementation ==========
+    // ========== Zone 接口实现 ==========
 
     @Override
     public String getName() {
@@ -135,7 +163,7 @@ public class Exile implements Zone {
 
     @Override
     public Player getOwner() {
-        return null;  // Shared zone
+        return null;  // 共享区域
     }
 
     @Override

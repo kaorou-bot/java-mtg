@@ -5,7 +5,7 @@
 MTG Battle 是一个基于 Magic: The Gathering 2026年2月27日综合规则的1v1 Java Swing 对战游戏。
 
 **当前分支**: `java-mtg` (main: `main`)
-**Commit**: `3b1d5e1` — Phase 1 核心框架 + VSCode 配置已完成
+**Commit**: `Phase 2 完成` — 异能系统、效果系统、卡牌效果解析
 
 **运行方式**:
 ```bash
@@ -42,7 +42,7 @@ java -cp out com.mtg.MtgBattle
 
 - **compile-main** — 编译主代码到 `out/`
 - **compile-tests** — 编译测试代码到 `test-classes/`（需先运行 download-junit）
-- **run-tests** — 运行全部 137 个测试
+- **run-tests** — 运行全部 153 个测试
 - **download-junit** — 下载 JUnit Platform Console（一次性）
 - **build-all** — 清理并重新编译
 
@@ -74,7 +74,7 @@ done
 java -jar /tmp/junit-platform-console-standalone.jar \
   --class-path "/tmp/mtg-test-classes:/tmp/mtg-classes" --scan-classpath
 
-# 当前状态: 137 tests, 全部通过
+# 当前状态: 153 tests, 全部通过
 ```
 
 ---
@@ -98,6 +98,9 @@ src/main/java/com/mtg/
 ├── game/           # Game, TurnManager, TurnPhase, (废弃: GamePhase, CombatManager)
 ├── player/         # Player, Deck
 ├── card/           # CardLibrary
+├── abilities/      # TriggeredAbility, ActivatedAbility, TriggeredAbilityManager
+├── effects/        # ReplacementEffect, PreventionEffect, GameEvent, EffectManager
+├── resolution/     # CardEffectResolver
 └── ui/             # GameFrame, HandPanel, BattlefieldPanel, CardPanel, PlayerPanel
 ```
 
@@ -106,8 +109,6 @@ src/main/java/com/mtg/
 ## Phase 1 已完成 ✓
 
 **目标**: 核心框架 — 区域系统、优先权、回合结构、状态基准动作
-
-### 区域系统 (Rule 400-406)
 
 所有区域实现 `Zone` 接口：
 
@@ -171,21 +172,52 @@ MAIN2 → END → CLEANUP → (switchTurn → UNTAAP)
 
 ### 状态基准动作 (Rule 704)
 
-`StateBasedActions.check(p1, p2, battlefield, lib1, lib2)` 检查：
+`StateBasedActions sba = new StateBasedActions(zoneManager); sba.check(p1, p2, battlefield)` 检查：
 - 生命 ≤ 0 / 中毒 ≥ 10
 - 生物防御力 ≤ 0 / 致命伤害
 - 鹏洛客忠诚 = 0 / 传奇规则 / Aura 非法目标 / Battle 防御力 = 0
 
 ---
 
-## Phase 2 待开发
+## Phase 2 已完成 ✓
 
-- 触发式异能系统（Section 603）
-- 激活式异能（Section 602）
-- 替代式/预防式效果（Section 614/615）
+**目标**: 异能系统、效果系统、卡牌效果解析
+
+### 异能系统 (Rule 602-603)
+
+| 类 | 规则 | 说明 |
+|----|------|------|
+| `TriggeredAbility` | 603 | 触发异能基类 |
+| `TriggeredAbilityManager` | 603 | 触发异能管理器（注册、检查、APNAP排序） |
+| `ActivatedAbility` | 602 | 激活异能基类（支持法力/横置/牺牲费用） |
+
+### 效果系统 (Rule 614-615)
+
+| 类 | 规则 | 说明 |
+|----|------|------|
+| `ReplacementEffect` | 614 | 替代效果 |
+| `PreventionEffect` | 615 | 预防效果 |
+| `GameEvent` | - | 游戏事件模型 |
+| `EffectManager` | - | 效果管理器 |
+
+### 卡牌效果解析
+
+`CardEffectResolver` 统一处理咒语效果：
+- `dealDamageTo()` — 造成伤害
+- `buffTargetCreature()` — 增强生物
+- `destroyPermanent()` — 消灭永久物
+- `gainLifeAndDraw()` — 获得生命/抽牌
+- `addKeywordUntilEndOfTurn()` — 添加关键词能力
+
+---
+
+## Phase 3 待开发
+
 - 回合阶段 UI 完整集成
 - 游戏日志完善
-- 卡牌效果系统
+- 更多卡牌效果实现
+- AI 对手
+- 网络对战
 
 ---
 
@@ -255,3 +287,8 @@ MAIN2 → END → CLEANUP → (switchTurn → UNTAAP)
 - `TurnManager.endCombat()` — 移除 `game.getPrioritySystem()` 调用（允许 null game）
 - `Library.duplicate size()` — 删除重复的 `size()` 方法
 - `Graveyard.isPublic()` — 返回 `true`（Rule 404.2: 任意玩家可查看）
+
+### Phase 2 修复的 Bug
+- `StateBasedActions` — 改为实例方法，添加 ZoneManager 引用，正确销毁永久物
+- `CreatureCard` — 添加 keyword ability 的 setter 方法（setHasFlying 等）
+- `Stack` — 添加 `pushAbility(TriggeredAbility/ActivatedAbility)` 支持异能入堆叠

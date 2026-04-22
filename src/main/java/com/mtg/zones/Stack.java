@@ -2,6 +2,8 @@ package com.mtg.zones;
 
 import com.mtg.model.GameObject;
 import com.mtg.player.Player;
+import com.mtg.abilities.TriggeredAbility;
+import com.mtg.abilities.ActivatedAbility;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,6 +50,26 @@ public class Stack implements Zone {
      */
     public void push(TriggeredItem triggered) {
         items.add(triggered);
+    }
+
+    /**
+     * Push a triggered ability from TriggeredAbility onto the stack.
+     */
+    public void pushAbility(TriggeredAbility ability) {
+        String name = ability.getName();
+        Player controller = ability.getController();
+        Stack.AbilityItem item = new Stack.AbilityItem(name, controller, () -> ability.execute(null));
+        items.add(item);
+    }
+
+    /**
+     * Push an activated ability onto the stack.
+     */
+    public void pushAbility(ActivatedAbility ability) {
+        String name = ability.getName();
+        Player controller = ability.getController();
+        Stack.AbilityItem item = new Stack.AbilityItem(name, controller, () -> ability.execute(null));
+        items.add(item);
     }
 
     /**

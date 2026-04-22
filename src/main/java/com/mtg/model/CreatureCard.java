@@ -108,6 +108,30 @@ public class CreatureCard extends PermanentCard {
         this.hasHaste = hasHaste;
     }
 
+    public void setHasFirstStrike(boolean hasFirstStrike) {
+        this.hasFirstStrike = hasFirstStrike;
+    }
+
+    public void setHasDoubleStrike(boolean hasDoubleStrike) {
+        this.hasDoubleStrike = hasDoubleStrike;
+    }
+
+    public void setHasFlying(boolean hasFlying) {
+        this.hasFlying = hasFlying;
+    }
+
+    public void setHasVigilance(boolean hasVigilance) {
+        this.hasVigilance = hasVigilance;
+    }
+
+    public void setHasTrample(boolean hasTrample) {
+        this.hasTrample = hasTrample;
+    }
+
+    public void setHasDeathtouch(boolean hasDeathtouch) {
+        this.hasDeathtouch = hasDeathtouch;
+    }
+
     public void resetStats() {
         this.currentPower = power;
         this.currentToughness = toughness;

@@ -7,9 +7,7 @@ import com.mtg.zones.*;
 import com.mtg.gamecore.PrioritySystem;
 import com.mtg.gamecore.StateBasedActions;
 import com.mtg.card.CardLibrary;
-
-import java.util.List;
-import java.util.ArrayList;
+import com.mtg.resolution.CardEffectResolver;
 
 /**
  * Game represents the current state of a Magic: The Gathering game.
@@ -222,60 +220,17 @@ public class Game {
     }
 
     /**
-     * Resolve a spell.
+     * Resolve a spell using CardEffectResolver.
      */
     private void resolveSpell(Stack.SpellItem spellItem) {
         Card card = spellItem.getCard();
         Player caster = spellItem.getController();
-        Battlefield bf = zoneManager.getBattlefield();
 
-        switch (card.getType()) {
-            case CREATURE -> {
-                zoneManager.putOnBattlefield(card, caster);
-                CreatureCard creature = (CreatureCard) card;
-                creature.untap();
-            }
-            case ENCHANTMENT -> zoneManager.putOnBattlefield(card, caster);
-            case ARTIFACT -> zoneManager.putOnBattlefield(card, caster);
-            case PLANESWALKER -> zoneManager.putOnBattlefield(card, caster);
-            case INSTANT, SORCERY -> {
-                resolveInstantSorcery(card, caster);
-                zoneManager.getGraveyard(caster).add(card);
-            }
-            default -> {}
-        }
-    }
+        CardEffectResolver.resolveSpell(this, card, caster);
 
-    /**
-     * Resolve instant/sorcery effects (simplified).
-     */
-    private void resolveInstantSorcery(Card card, Player caster) {
-        Player opponent = caster.getOpponent();
-        Battlefield bf = zoneManager.getBattlefield();
-
-        // Simplified spell effects
-        switch (card.getName()) {
-            case "Lightning Bolt" -> {
-                List<CreatureCard> creatures = bf.getCreatures();
-                if (!creatures.isEmpty()) {
-                    creatures.get(0).addDamage(3);
-                } else {
-                    opponent.modifyLife(-3);
-                }
-            }
-            case "Shock" -> {
-                List<CreatureCard> creatures = bf.getCreatures();
-                if (!creatures.isEmpty()) {
-                    creatures.get(0).addDamage(2);
-                } else {
-                    opponent.modifyLife(-2);
-                }
-            }
-            case "Dark Ritual" -> {
-                for (int i = 0; i < 3; i++) {
-                    caster.addMana(ManaType.BLACK);
-                }
-            }
+        // Non-permanent spells go to graveyard after resolving
+        if (card.getType() == CardType.INSTANT || card.getType() == CardType.SORCERY) {
+            zoneManager.getGraveyard(caster).add(card);
         }
     }
 
@@ -319,10 +274,8 @@ public class Game {
         }
 
         // Check state-based actions
-        StateBasedActions.check(player1, player2,
-            zoneManager.getBattlefield(),
-            zoneManager.getLibrary(player1),
-            zoneManager.getLibrary(player2));
+        StateBasedActions sba = new StateBasedActions(zoneManager);
+        sba.check(player1, player2, zoneManager.getBattlefield());
     }
 
     public void endTurn() {

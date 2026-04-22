@@ -1,10 +1,11 @@
-# MTG Battle - Phase 1 开发文档
+# MTG Battle - Phase 1 & 2 开发文档
 
 ## 概述
 
-MTG Battle 是一个基于 Magic: The Gathering 2026年2月27日综合规则的1v1对战游戏。本文档记录 Phase 1 的实现内容。
+MTG Battle 是一个基于 Magic: The Gathering 2026年2月27日综合规则的1v1对战游戏。本文档记录 Phase 1 和 Phase 2 的实现内容。
 
-**目标**: 实现核心框架 — 区域系统、优先权系统、回合结构、状态基准动作。
+**Phase 1 目标**: 实现核心框架 — 区域系统、优先权系统、回合结构、状态基准动作。  
+**Phase 2 目标**: 实现异能系统、效果系统、卡牌效果解析。
 
 ---
 
@@ -18,10 +19,15 @@ src/main/java/com/mtg/
 ├── game/           # 游戏逻辑（Game, TurnManager, TurnPhase）
 ├── player/         # 玩家（Player, Deck）
 ├── card/           # 卡牌库（CardLibrary）
+├── abilities/      # 异能系统（TriggeredAbility, ActivatedAbility）
+├── effects/        # 效果系统（ReplacementEffect, PreventionEffect）
+├── resolution/     # 卡牌效果解析（CardEffectResolver）
 └── ui/             # 图形界面（GameFrame, HandPanel, BattlefieldPanel）
 ```
 
 ---
+
+## Phase 1: 核心框架 ✓
 
 ## 区域系统 (Section 400)
 
@@ -167,9 +173,13 @@ src/test/java/com/mtg/
 ├── gamecore/
 │   ├── PrioritySystemTest.java    — 优先权传递
 │   └── StateBasedActionsTest.java — SBA 检查
-└── game/
-    ├── TurnPhaseTest.java     — 阶段枚举
-    └── TurnManagerTest.java  — 回合结构
+├── game/
+│   ├── TurnPhaseTest.java     — 阶段枚举
+│   └── TurnManagerTest.java  — 回合结构
+├── abilities/
+│   └── TriggeredAbilityTest.java — 触发异能系统
+└── resolution/
+    └── CardEffectResolverTest.java — 卡牌效果解析
 ```
 
 ### 运行测试
@@ -184,13 +194,13 @@ java -jar junit-platform-console-standalone.jar \
   --scan-classpath
 ```
 
-**当前状态**: 137 个测试全部通过
+**当前状态**: 153 个测试全部通过
 
 ---
 
-## 主要代码变更（Phase 1）
+## 主要代码变更（Phase 1 + 2）
 
-### 新增文件
+### Phase 1 新增文件
 - `zones/Zone.java` — 区域接口
 - `zones/Library.java` — 牌库（Rule 401）
 - `zones/Hand.java` — 手牌（Rule 402）
@@ -203,24 +213,165 @@ java -jar junit-platform-console-standalone.jar \
 - `gamecore/StateBasedActions.java` — 状态基准动作（Rule 704）
 - `game/TurnPhase.java` — 回合阶段枚举
 
+### Phase 2 新增文件
+- `abilities/TriggeredAbility.java` — 触发异能基类（Rule 603）
+- `abilities/TriggeredAbilityManager.java` — 触发异能管理器
+- `abilities/ActivatedAbility.java` — 激活异能基类（Rule 602）
+- `effects/ReplacementEffect.java` — 替代效果（Rule 614）
+- `effects/PreventionEffect.java` — 预防效果（Rule 615）
+- `effects/GameEvent.java` — 游戏事件模型
+- `effects/EffectManager.java` — 效果管理器
+- `resolution/CardEffectResolver.java` — 卡牌效果解析器
+
 ### 修改文件
 - `game/Game.java` — 重构使用 ZoneManager、PrioritySystem，新增 GameListener
 - `game/TurnManager.java` — 完全重写，支持所有阶段，增加 setBattlefield()
 - `model/Card.java` — 实现 GameObject 接口，添加 Zone 跟踪
-- `model/CreatureCard.java` — 添加伤害标记、先攻、敏捷等能力
+- `model/CreatureCard.java` — 添加伤害标记、先攻、敏捷等能力，新增 setter 方法
 - `model/EnchantmentCard.java` — 添加 Aura 附魔支持
 - `model/PermanentCard.java` — 添加传奇属性
 - `player/Player.java` — 添加 getOpponent()、addPermanent()、mana 管理
+- `zones/Stack.java` — 增强，支持异能入堆叠
+- `gamecore/StateBasedActions.java` — 改为实例方法，正确通过 ZoneManager 销毁永久物
 
 ---
 
-## Phase 2 预告
+## Phase 2: 异能与效果系统 ✓
 
-- 触发式异能系统（Section 603）
-- 激活式异能（Section 602）
-- 替代式/预防式效果（Section 614/615）
-- 回合阶段 UI 集成
+### 异能系统
+
+#### TriggeredAbility (Rule 603)
+
+触发式异能基类：
+
+```java
+public abstract class TriggeredAbility {
+    protected String name;
+    protected Card sourceCard;
+    protected Player controller;
+    
+    boolean checkTrigger(Game game);        // 检查触发条件
+    void execute(Game game);                 // 执行效果
+    String getDescription();                 // 描述
+}
+```
+
+**常见触发类型**:
+- `OnPhaseBeginAbility` — 阶段开始触发（如"在你的维持阶段开始时"）
+- `OnZoneChangeAbility` — 区域改变触发（如"当此生物进战场时"）
+- `OnDamageDealtAbility` — 造成伤害时触发
+
+**TriggeredAbilityManager** 管理所有触发异能：
+- 注册/注销异能
+- 检查触发条件
+- 按 APNAP 顺序放入堆叠（Rule 603.6）
+
+#### ActivatedAbility (Rule 602)
+
+激活式异能基类：
+
+```java
+public abstract class ActivatedAbility {
+    protected ManaCost manaCost;
+    protected boolean isTapped;      // 需要横置源
+    protected boolean isSacrificed;  // 需要牺牲源
+    
+    boolean canActivate(Game game);  // 检查是否可激活
+    boolean activate(Game game);     // 支付费用并激活
+    void execute(Game game);         // 执行效果
+}
+```
+
+**激活费用支持**:
+- 法力费用
+- 横置费用
+- 牺牲费用
+- 其他自定义费用
+
+### 效果系统
+
+#### ReplacementEffect (Rule 614)
+
+替代效果，修改游戏事件：
+
+```java
+public abstract class ReplacementEffect {
+    boolean applies(GameEvent event, Game game);
+    GameEvent apply(GameEvent event, Game game);
+}
+```
+
+**示例**: "如果一个来源将对您造成伤害，防止其中的1点伤害。"
+
+#### PreventionEffect (Rule 615)
+
+预防效果，阻止伤害或事件：
+
+```java
+public abstract class PreventionEffect {
+    boolean applies(GameEvent event, Game game);
+    GameEvent apply(GameEvent event, Game game);
+}
+```
+
+#### GameEvent
+
+游戏事件模型：
+
+```java
+public class GameEvent {
+    String eventType;  // "damage", "draw", "enterBattlefield" 等
+    Object source;     // 事件来源
+    Player player;     // 受影响的玩家
+    Object target;     // 目标对象
+    int amount;        // 数量（伤害、抽牌等）
+}
+```
+
+#### EffectManager
+
+管理所有活跃效果：
+
+- `addReplacementEffect()`
+- `addPreventionEffect()`
+- `addContinuousEffect()`
+- `processEvent()` — 按顺序应用所有效果
+
+### 卡牌效果解析
+
+#### CardEffectResolver
+
+统一的卡牌效果解析器，支持：
+
+**伤害效果**:
+- `dealDamageToAny()` — 对任意目标造成伤害
+- `dealDamageTo()` — 对特定目标造成伤害
+
+**生物效果**:
+- `buffTargetCreature()` — 增强生物（+X/+X）
+- `destroyPermanent()` — 消灭永久物
+- `exilePermanent()` — 放逐永久物
+
+**玩家效果**:
+- `gainLifeAndDraw()` — 获得生命并抽牌
+- `produceBlackMana()` — 产生法力
+
+**关键词能力**:
+- `addKeywordUntilEndOfTurn()` — 添加关键词（飞行、先攻等）
+
+**Stack 增强**:
+- `pushAbility(TriggeredAbility)` — 触发异能入堆叠
+- `pushAbility(ActivatedAbility)` — 激活异能入堆叠
+
+---
+
+## Phase 3: 待开发
+
+- 回合阶段 UI 完整集成
 - 游戏日志完善
+- 更多卡牌效果实现
+- AI 对手
+- 网络对战
 
 ---
 
@@ -237,4 +388,7 @@ java -jar junit-platform-console-standalone.jar \
 - Section 117: Timing and Priority
 - Section 500: Starting the Turn
 - Sections 502-514: Turn Structure
-- Section 704: State-Based Actions
+- Section 603: Triggered Abilities
+- Section 602: Activated Abilities
+- Section 614: Replacement Effects
+- Section 615: Prevention Effects

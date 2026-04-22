@@ -6,8 +6,7 @@ import com.mtg.model.PlaneswalkerCard;
 import com.mtg.model.PermanentCard;
 import com.mtg.model.EnchantmentCard;
 import com.mtg.zones.Battlefield;
-import com.mtg.zones.Graveyard;
-import com.mtg.zones.Library;
+import com.mtg.zones.ZoneManager;
 
 import java.util.List;
 import java.util.Map;
@@ -23,14 +22,17 @@ import java.util.HashMap;
  * Rule 704.5: List of state-based actions for a two-player game.
  */
 public class StateBasedActions {
+    private ZoneManager zoneManager;
+
+    public StateBasedActions(ZoneManager zoneManager) {
+        this.zoneManager = zoneManager;
+    }
 
     /**
      * Check and perform all applicable state-based actions.
      * @return true if any action was performed
      */
-    public static boolean check(Player player1, Player player2,
-                                 Battlefield battlefield,
-                                 Library library1, Library library2) {
+    public boolean check(Player player1, Player player2, Battlefield battlefield) {
         boolean actionPerformed = false;
 
         // 704.5a: Life ≤ 0 → player loses
@@ -42,22 +44,22 @@ public class StateBasedActions {
         if (checkPoison(player2)) actionPerformed = true;
 
         // 704.5f: Creature toughness ≤ 0
-        if (checkCreatureToughness(battlefield, player1, player2)) actionPerformed = true;
+        if (checkCreatureToughness(battlefield)) actionPerformed = true;
 
         // 704.5g: Lethal marked damage
-        if (checkLethalDamage(battlefield, player1, player2)) actionPerformed = true;
+        if (checkLethalDamage(battlefield)) actionPerformed = true;
 
         // 704.5i: Planeswalker loyalty = 0
-        if (checkPlaneswalkerLoyalty(battlefield, player1, player2)) actionPerformed = true;
+        if (checkPlaneswalkerLoyalty(battlefield)) actionPerformed = true;
 
         // 704.5j: Legend rule
-        if (checkLegendRule(battlefield, player1, player2)) actionPerformed = true;
+        if (checkLegendRule(battlefield)) actionPerformed = true;
 
         // 704.5m: Aura illegal target
-        if (checkAuraTargets(battlefield, player1, player2)) actionPerformed = true;
+        if (checkAuraTargets(battlefield)) actionPerformed = true;
 
         // 704.5s: Battle defense = 0
-        if (checkBattleDefense(battlefield, player1, player2)) actionPerformed = true;
+        if (checkBattleDefense(battlefield)) actionPerformed = true;
 
         return actionPerformed;
     }
@@ -66,21 +68,21 @@ public class StateBasedActions {
      * 704.5a: Player's life total is 0 or less.
      * @return true if player loses
      */
-    private static boolean checkLife(Player player) {
+    private boolean checkLife(Player player) {
         return player.getLife() <= 0;
     }
 
     /**
      * 704.5c: 10 or more poison counters.
      */
-    private static boolean checkPoison(Player player) {
+    private boolean checkPoison(Player player) {
         return player.getPoisonCounters() >= 10;
     }
 
     /**
      * 704.5f: Creature's toughness is 0 or less → destroy.
      */
-    private static boolean checkCreatureToughness(Battlefield bf, Player p1, Player p2) {
+    private boolean checkCreatureToughness(Battlefield bf) {
         List<CreatureCard> toDestroy = new java.util.ArrayList<>();
         for (CreatureCard c : bf.getCreatures()) {
             if (c.getToughness() <= 0) {
@@ -88,7 +90,7 @@ public class StateBasedActions {
             }
         }
         for (CreatureCard c : toDestroy) {
-            destroyPermanent(c, bf, c.getOwner());
+            destroyPermanent(c);
         }
         return !toDestroy.isEmpty();
     }
@@ -96,7 +98,7 @@ public class StateBasedActions {
     /**
      * 704.5g: Lethal damage marked on creature.
      */
-    private static boolean checkLethalDamage(Battlefield bf, Player p1, Player p2) {
+    private boolean checkLethalDamage(Battlefield bf) {
         List<CreatureCard> toDestroy = new java.util.ArrayList<>();
         for (CreatureCard c : bf.getCreatures()) {
             if (c.getMarkedDamage() >= c.getToughness()) {
@@ -104,7 +106,7 @@ public class StateBasedActions {
             }
         }
         for (CreatureCard c : toDestroy) {
-            destroyPermanent(c, bf, c.getOwner());
+            destroyPermanent(c);
         }
         return !toDestroy.isEmpty();
     }
@@ -112,7 +114,7 @@ public class StateBasedActions {
     /**
      * 704.5i: Planeswalker loyalty = 0.
      */
-    private static boolean checkPlaneswalkerLoyalty(Battlefield bf, Player p1, Player p2) {
+    private boolean checkPlaneswalkerLoyalty(Battlefield bf) {
         List<PlaneswalkerCard> toMove = new java.util.ArrayList<>();
         for (PlaneswalkerCard pw : bf.getPlaneswalkers()) {
             if (pw.getLoyalty() <= 0) {
@@ -120,7 +122,7 @@ public class StateBasedActions {
             }
         }
         for (PlaneswalkerCard pw : toMove) {
-            destroyPermanent(pw, bf, pw.getOwner());
+            destroyPermanent(pw);
         }
         return !toMove.isEmpty();
     }
@@ -128,7 +130,7 @@ public class StateBasedActions {
     /**
      * 704.5j: Legend rule - two legendary permanents with same name.
      */
-    private static boolean checkLegendRule(Battlefield bf, Player p1, Player p2) {
+    private boolean checkLegendRule(Battlefield bf) {
         Map<String, java.util.List<PermanentCard>> legendaries = new HashMap<>();
         for (PermanentCard p : bf.getPermanents()) {
             if (p.isLegendary() && p.getName() != null) {
@@ -147,7 +149,7 @@ public class StateBasedActions {
             }
         }
         for (PermanentCard p : toDestroy) {
-            destroyPermanent(p, bf, p.getOwner());
+            destroyPermanent(p);
         }
         return !toDestroy.isEmpty();
     }
@@ -155,7 +157,7 @@ public class StateBasedActions {
     /**
      * 704.5m: Aura enchanting illegal target → graveyard.
      */
-    private static boolean checkAuraTargets(Battlefield bf, Player p1, Player p2) {
+    private boolean checkAuraTargets(Battlefield bf) {
         List<EnchantmentCard> toMove = new java.util.ArrayList<>();
         for (EnchantmentCard e : bf.getEnchantments()) {
             if (e.isAura()) {
@@ -166,7 +168,7 @@ public class StateBasedActions {
             }
         }
         for (EnchantmentCard e : toMove) {
-            destroyPermanent(e, bf, e.getOwner());
+            destroyPermanent(e);
         }
         return !toMove.isEmpty();
     }
@@ -174,7 +176,7 @@ public class StateBasedActions {
     /**
      * 704.5s: Battle defense = 0.
      */
-    private static boolean checkBattleDefense(Battlefield bf, Player p1, Player p2) {
+    private boolean checkBattleDefense(Battlefield bf) {
         List<com.mtg.model.BattleCard> toMove = new java.util.ArrayList<>();
         for (com.mtg.model.BattleCard b : bf.getBattles()) {
             if (b.getDefense() <= 0) {
@@ -182,17 +184,18 @@ public class StateBasedActions {
             }
         }
         for (com.mtg.model.BattleCard b : toMove) {
-            destroyPermanent(b, bf, b.getOwner());
+            destroyPermanent(b);
         }
         return !toMove.isEmpty();
     }
 
     /**
-     * Helper: Move permanent to owner's graveyard.
+     * Helper: Move permanent to owner's graveyard via ZoneManager.
      */
-    private static void destroyPermanent(PermanentCard permanent, Battlefield bf, Player owner) {
-        bf.remove(permanent);
-        // Owner graveyard would be set via ZoneManager
+    private void destroyPermanent(PermanentCard permanent) {
+        if (zoneManager != null) {
+            zoneManager.destroy(permanent);
+        }
     }
 
     /**

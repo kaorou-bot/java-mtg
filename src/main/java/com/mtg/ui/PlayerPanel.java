@@ -57,15 +57,23 @@ public class PlayerPanel extends JPanel {
         lifeLabel.setText("Life: " + player.getLife());
         lifeLabel.setForeground(player.getLife() <= 5 ? Color.RED : Color.BLACK);
 
-        List<ManaType> mana = player.getAvailableMana();
-        StringBuilder manaStr = new StringBuilder("Mana: ");
-        for (ManaType m : mana) {
-            manaStr.append(m.getSymbol()).append(" ");
+        // 显示法力池
+        com.mtg.game.ManaPool pool = player.getManaPool();
+        if (pool != null && !pool.isEmpty()) {
+            manaLabel.setText("Mana: " + pool.toDisplayString());
+            manaLabel.setForeground(Color.BLUE);
+        } else {
+            List<ManaType> mana = player.getAvailableMana();
+            StringBuilder manaStr = new StringBuilder("Mana: ");
+            for (ManaType m : mana) {
+                manaStr.append(m.getSymbol()).append(" ");
+            }
+            if (mana.isEmpty()) {
+                manaStr.append("-");
+            }
+            manaLabel.setText(manaStr.toString());
+            manaLabel.setForeground(Color.BLACK);
         }
-        if (mana.isEmpty()) {
-            manaStr.append("-");
-        }
-        manaLabel.setText(manaStr.toString());
 
         deckLabel.setText("Deck: " + player.getDeck().size() + " | Hand: " + player.getHand().size());
     }

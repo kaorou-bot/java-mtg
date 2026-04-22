@@ -49,6 +49,7 @@ public class Game {
     private int turnNumber;              // 回合数（第几回合）
     private boolean gameOver;             // 游戏是否结束
     private Player winner;                // 获胜玩家
+    private GameLog gameLog;              // 游戏日志
 
     // ========== 构造函数 ==========
 
@@ -63,6 +64,7 @@ public class Game {
         this.player2 = new Player(player2Name);
         this.turnManager = new TurnManager(this);
         this.prioritySystem = new PrioritySystem();
+        this.gameLog = new GameLog();
         this.gameOver = false;
         this.winner = null;
         this.turnNumber = 0;
@@ -141,6 +143,8 @@ public class Game {
         // 11. 开始第一个回合
         turnManager.startTurn(currentPlayer);
         currentPhase = turnManager.getCurrentPhase();
+        gameLog.logTurnStart(1, currentPlayer);
+        gameLog.logPhase(currentPhase, currentPlayer);
     }
 
     // ========== 游戏动作 ==========
@@ -164,6 +168,7 @@ public class Game {
         if (card != null) {
             card.setController(player);
             zoneManager.getHand(player).add(card, player);
+            gameLog.logDraw(player, card.getName());
         }
     }
 
@@ -202,6 +207,7 @@ public class Game {
             hand.remove(land);
             zoneManager.putOnBattlefield(land, player);
             player.setLandPlayedThisTurn(true);
+            gameLog.logAction(player, "plays a land");
             return true;
         }
         return false;
@@ -430,6 +436,7 @@ public class Game {
         // 2. 推进阶段
         turnManager.advancePhase();
         currentPhase = turnManager.getCurrentPhase();
+        gameLog.logPhase(currentPhase, currentPlayer);
 
         // 3. 执行阶段特定逻辑
         switch (currentPhase) {
@@ -476,6 +483,7 @@ public class Game {
     public void declareAttacker(CreatureCard creature, Player target) {
         if (currentPhase == TurnPhase.DECLARE_ATTACKERS) {
             turnManager.declareAttacker(creature, target);
+            gameLog.logAttack(creature.getName(), target.getName());
         }
     }
 
@@ -488,6 +496,7 @@ public class Game {
     public void declareBlocker(CreatureCard blocker, CreatureCard attacker) {
         if (currentPhase == TurnPhase.DECLARE_BLOCKERS) {
             turnManager.declareBlocker(blocker, attacker);
+            gameLog.logBlock(blocker.getName(), attacker.getName());
         }
     }
 
@@ -513,6 +522,7 @@ public class Game {
     public ZoneManager getZoneManager() { return zoneManager; }
     public Battlefield getBattlefield() { return zoneManager.getBattlefield(); }
     public Stack getStack() { return zoneManager.getStack(); }
+    public GameLog getGameLog() { return gameLog; }
     public boolean isGameOver() { return gameOver; }
     public Player getWinner() { return winner; }
     public int getTurnNumber() { return turnNumber; }
@@ -532,6 +542,7 @@ public class Game {
         if (!gameOver) {
             gameOver = true;
             winner = player.getOpponent();
+            gameLog.logGameOver(winner, reason);
         }
     }
 

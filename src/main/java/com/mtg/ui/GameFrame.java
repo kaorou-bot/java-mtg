@@ -21,10 +21,10 @@ public class GameFrame extends JFrame implements Game.GameListener {
     private JButton nextPhaseButton;
     private JButton endTurnButton;
     private JButton attackButton;
-    private JTextArea logArea;
+    private JList<String> logList;
+    private DefaultListModel<String> logModel;
 
     private CreatureCard selectedAttacker;
-    private Card selectedCard;
 
     public GameFrame() {
         setTitle("MTG Battle - Magic: The Gathering");
@@ -98,10 +98,11 @@ public class GameFrame extends JFrame implements Game.GameListener {
         buttonPanel.add(endTurnButton);
         buttonPanel.add(attackButton);
 
-        logArea = new JTextArea(5, 20);
-        logArea.setEditable(false);
-        logArea.setFont(new Font("Monospaced", Font.PLAIN, 10));
-        JScrollPane logScroll = new JScrollPane(logArea);
+        logModel = new DefaultListModel<>();
+        logList = new JList<>(logModel);
+        logList.setFont(new Font("Monospaced", Font.PLAIN, 11));
+        JScrollPane logScroll = new JScrollPane(logList);
+        logScroll.setPreferredSize(new Dimension(250, 100));
 
         add(topPanel, BorderLayout.NORTH);
         add(centerPanel, BorderLayout.CENTER);
@@ -166,12 +167,23 @@ public class GameFrame extends JFrame implements Game.GameListener {
         player1Battlefield.refresh();
         player2Battlefield.refresh();
 
-        phaseLabel.setText(String.format("Current: %s | Phase: %s | %s's turn",
-            currentPlayer.getName(),
+        phaseLabel.setText(String.format("Turn %d | %s | %s's turn",
+            game.getTurnNumber(),
             game.getCurrentPhase().getName(),
             currentPlayer.getName()));
 
         updateButtons();
+        updateLogDisplay();
+    }
+
+    private void updateLogDisplay() {
+        logModel.clear();
+        GameLog gameLog = game.getGameLog();
+        if (gameLog != null) {
+            for (GameLog.LogEntry entry : gameLog.getEntries()) {
+                logModel.addElement(entry.toString());
+            }
+        }
     }
 
     private void updateButtons() {
@@ -254,7 +266,6 @@ public class GameFrame extends JFrame implements Game.GameListener {
         }
 
         if (played) {
-            appendLog(current.getName() + " plays " + card.getName());
             refresh();
         }
     }
@@ -265,7 +276,6 @@ public class GameFrame extends JFrame implements Game.GameListener {
 
         if (phase == TurnPhase.DECLARE_ATTACKERS && creature.canAttack()) {
             game.declareAttacker(creature, game.getCurrentPlayer().getOpponent());
-            appendLog("Declare " + creature.getName() + " attacks");
             refresh();
         }
     }
@@ -274,50 +284,38 @@ public class GameFrame extends JFrame implements Game.GameListener {
         if (game.isGameOver()) return;
         if (selectedAttacker != null) {
             game.declareBlocker(blocker, selectedAttacker);
-            appendLog(blocker.getName() + " blocks " + selectedAttacker.getName());
             selectedAttacker = null;
             refresh();
         }
     }
 
-    private void appendLog(String message) {
-        logArea.append(message + "\n");
-        logArea.setCaretPosition(logArea.getDocument().getLength());
-    }
-
     @Override
     public void onPhaseChange(TurnPhase phase, Player currentPlayer) {
-        appendLog("Phase: " + phase.getName() + " - " + currentPlayer.getName() + "'s turn");
         refresh();
     }
 
     @Override
     public void onCardPlayed(Player player, Card card) {
-        appendLog(player.getName() + " plays: " + card.getName());
         refresh();
     }
 
     @Override
     public void onDamageDealt(Player target, int amount) {
-        appendLog(target.getName() + " takes " + amount + " damage");
         refresh();
     }
 
     @Override
     public void onCreatureDestroyed(CreatureCard creature) {
-        appendLog(creature.getName() + " destroyed");
         refresh();
     }
 
     @Override
     public void onPermanentDestroyed(PermanentCard permanent) {
-        appendLog(permanent.getName() + " destroyed");
         refresh();
     }
 
     @Override
     public void onGameOver(Player winner) {
-        appendLog("=== GAME OVER! " + winner.getName() + " WINS! ===");
         JOptionPane.showMessageDialog(
             this,
             winner.getName() + " wins!",

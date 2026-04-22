@@ -45,7 +45,8 @@ public class Player {
     private List<BattleCard> battles;
 
     private List<LandCard> manaSources;  // 法力来源
-    private List<ManaType> availableMana;  // 可用法力
+    private List<ManaType> availableMana;  // 可用法力（简化版本）
+    private com.mtg.game.ManaPool manaPool;  // 法力池
     private int poisonCounters;  // 中毒指示物数量
     private boolean landPlayedThisTurn;  // 本回合是否已出地
 
@@ -74,6 +75,7 @@ public class Player {
 
         this.manaSources = new ArrayList<>();
         this.availableMana = new ArrayList<>();
+        this.manaPool = new com.mtg.game.ManaPool();
         this.poisonCounters = 0;
     }
 
@@ -291,6 +293,7 @@ public class Player {
      */
     public void clearMana() {
         availableMana.clear();
+        manaPool.clear();
     }
 
     /**
@@ -298,11 +301,23 @@ public class Player {
      */
     public void produceMana() {
         availableMana.clear();
+        manaPool.clear();
         for (LandCard land : manaSources) {
             if (!land.isTapped()) {
-                availableMana.add(land.getProducedMana());
+                ManaType produced = land.getProducedMana();
+                availableMana.add(produced);
+                manaPool.add(produced, 1);
             }
         }
+    }
+
+    /**
+     * 获取法力池。
+     *
+     * @return 法力池
+     */
+    public com.mtg.game.ManaPool getManaPool() {
+        return manaPool;
     }
 
     /**
@@ -312,6 +327,11 @@ public class Player {
      * @return 是否可以支付
      */
     public boolean canPayCost(ManaCost cost) {
+        // 优先使用 manaPool
+        if (manaPool != null && !manaPool.isEmpty()) {
+            return manaPool.canPay(cost);
+        }
+        // 回退到 availableMana
         return cost.canPayWith(availableMana);
     }
 
@@ -321,7 +341,13 @@ public class Player {
      * @param cost 费用
      */
     public void payMana(ManaCost cost) {
-        availableMana = cost.payMana(availableMana);
+        // 优先使用 manaPool
+        if (manaPool != null && !manaPool.isEmpty()) {
+            manaPool.pay(cost);
+        } else {
+            // 回退到 availableMana
+            availableMana = cost.payMana(availableMana);
+        }
     }
 
     // ========== 回合相关 ==========

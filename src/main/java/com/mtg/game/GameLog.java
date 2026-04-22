@@ -393,7 +393,8 @@ public class GameLog {
 
         @Override
         public String toString() {
-            return String.format("[%s T%d/%s] %s", formattedTime, turnNumber, phase.getName(), message);
+            String phaseName = phase != null ? phase.getName() : "Unknown";
+            return String.format("[%s T%d/%s] %s", formattedTime, turnNumber, phaseName, message);
         }
     }
 

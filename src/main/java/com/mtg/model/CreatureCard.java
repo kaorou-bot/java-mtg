@@ -38,6 +38,10 @@ public class CreatureCard extends PermanentCard {
     private boolean hasTrample;      // 践踏
     private boolean hasDeathtouch;    // 致命
     private boolean hasHaste;         // 敏捷
+    private boolean hasLifelink;     // 系命
+    private boolean hasIndestructible; // 不灭
+    private boolean hasReach;        // 敏捷
+    private boolean hasMenace;       // 威慑
 
     /**
      * 创建生物卡牌。
@@ -71,6 +75,10 @@ public class CreatureCard extends PermanentCard {
         this.hasTrample = hasTrample;
         this.hasDeathtouch = false;
         this.hasHaste = false;
+        this.hasLifelink = false;
+        this.hasIndestructible = false;
+        this.hasReach = false;
+        this.hasMenace = false;
     }
 
     @Override
@@ -219,6 +227,88 @@ public class CreatureCard extends PermanentCard {
         this.hasDeathtouch = hasDeathtouch;
     }
 
+    // ========== 扩展关键词异能 ==========
+
+    /**
+     * 检查是否有系命异能。
+     *
+     * 【规则依据】
+     * - Rule 702.15: 系命
+     * - 造成伤害时，你获得等量生命
+     */
+    public boolean hasLifelink() {
+        return hasLifelink;
+    }
+
+    /**
+     * 设置系命异能。
+     *
+     * @param hasLifelink 是否有系命
+     */
+    public void setHasLifelink(boolean hasLifelink) {
+        this.hasLifelink = hasLifelink;
+    }
+
+    /**
+     * 检查是否有不灭异能。
+     *
+     * 【规则依据】
+     * - Rule 702.12: 不灭
+     * - 不能被消灭
+     */
+    public boolean hasIndestructible() {
+        return hasIndestructible;
+    }
+
+    /**
+     * 设置不灭异能。
+     *
+     * @param hasIndestructible 是否有不灭
+     */
+    public void setHasIndestructible(boolean hasIndestructible) {
+        this.hasIndestructible = hasIndestructible;
+    }
+
+    /**
+     * 检查是否有敏捷异能（用于阻挡飞行生物）。
+     *
+     * 【规则依据】
+     * - Rule 702.17: 敏捷
+     * - 可以阻挡飞行生物
+     */
+    public boolean hasReach() {
+        return hasReach;
+    }
+
+    /**
+     * 设置敏捷异能。
+     *
+     * @param hasReach 是否有敏捷
+     */
+    public void setHasReach(boolean hasReach) {
+        this.hasReach = hasReach;
+    }
+
+    /**
+     * 检查是否有威慑异能。
+     *
+     * 【规则依据】
+     * - Rule 702.111: 威慑
+     * - 只能被2个或更多生物阻挡
+     */
+    public boolean hasMenace() {
+        return hasMenace;
+    }
+
+    /**
+     * 设置威慑异能。
+     *
+     * @param hasMenace 是否有威慑
+     */
+    public void setHasMenace(boolean hasMenace) {
+        this.hasMenace = hasMenace;
+    }
+
     // ========== 状态重置 ==========
 
     /**
@@ -314,6 +404,10 @@ public class CreatureCard extends PermanentCard {
         if (hasTrample) sb.append("Trample ");
         if (hasDeathtouch) sb.append("Deathtouch ");
         if (hasHaste) sb.append("Haste ");
+        if (hasLifelink) sb.append("Lifelink ");
+        if (hasIndestructible) sb.append("Indestructible ");
+        if (hasReach) sb.append("Reach ");
+        if (hasMenace) sb.append("Menace ");
         return sb.toString().trim();
     }
 }

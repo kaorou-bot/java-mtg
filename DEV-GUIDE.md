@@ -1,11 +1,12 @@
-# MTG Battle - Phase 1 & 2 开发文档
+# MTG Battle - Phase 1, 2 & 3 开发文档
 
 ## 概述
 
-MTG Battle 是一个基于 Magic: The Gathering 2026年2月27日综合规则的1v1对战游戏。本文档记录 Phase 1 和 Phase 2 的实现内容。
+MTG Battle 是一个基于 Magic: The Gathering 2026年2月27日综合规则的1v1对战游戏。本文档记录 Phase 1、Phase 2 和 Phase 3 的实现内容。
 
 **Phase 1 目标**: 实现核心框架 — 区域系统、优先权系统、回合结构、状态基准动作。  
 **Phase 2 目标**: 实现异能系统、效果系统、卡牌效果解析。
+**Phase 3 目标**: UI 完整集成、游戏日志、战斗系统增强、法力系统完善。
 
 ---
 
@@ -194,7 +195,7 @@ java -jar junit-platform-console-standalone.jar \
   --scan-classpath
 ```
 
-**当前状态**: 153 个测试全部通过
+**当前状态**: 210 个测试全部通过
 
 ---
 
@@ -223,7 +224,17 @@ java -jar junit-platform-console-standalone.jar \
 - `effects/EffectManager.java` — 效果管理器
 - `resolution/CardEffectResolver.java` — 卡牌效果解析器
 
+### Phase 3 新增文件
+- `game/GameLog.java` — 游戏日志系统（17种日志类型）
+- `game/CombatResolver.java` — 战斗解析器（完整关键词异能支持）
+- `game/ManaPool.java` — 法力池管理
+
 ### 修改文件
+- `game/Game.java` — 集成 GameLog
+- `ui/GameFrame.java` — 使用 JList 显示日志
+- `player/Player.java` — 添加 ManaPool 集成
+- `ui/PlayerPanel.java` — 显示 ManaPool
+- `model/CreatureCard.java` — 添加 Lifelink, Indestructible, Reach, Menace 异能
 - `game/Game.java` — 重构使用 ZoneManager、PrioritySystem，新增 GameListener
 - `game/TurnManager.java` — 完全重写，支持所有阶段，增加 setBattlefield()
 - `model/Card.java` — 实现 GameObject 接口，添加 Zone 跟踪
@@ -365,10 +376,144 @@ public class GameEvent {
 
 ---
 
-## Phase 3: 待开发
+## Phase 3: UI 集成与系统完善 ✓
 
-- 回合阶段 UI 完整集成
-- 游戏日志完善
+### 3.1 游戏日志系统
+
+#### GameLog
+
+完整的游戏事件日志系统：
+
+```java
+public class GameLog {
+    List<LogEntry> entries;
+
+    // 日志方法
+    void log(String message);                    // 普通日志
+    void logAction(Player player, String action); // 玩家动作
+    void logPhase(TurnPhase phase, Player player); // 阶段变化
+    void logTurnStart(int turn, Player player);  // 回合开始
+    void logDamage(Player target, int amount, String source); // 伤害
+    void logAttack(String attacker, String target); // 攻击宣告
+    void logBlock(String blocker, String attacker);  // 阻挡宣告
+    void logDestroyed(String card, String reason);    // 消灭
+    void logGameOver(Player winner, String reason); // 游戏结束
+    void logDraw(Player player, String cardName);    // 抓牌
+    void logCardPlayed(Player player, Card card);   // 出牌
+    void logSpellCast(Player player, Card card);     // 施放咒语
+    void logSpellResolve(Card card);                // 咒语结算
+    void logDiscard(Player player, Card card);       // 弃牌
+    void logLifeChange(Player player, int newLife, int change); // 生命变化
+    void logPriorityPassed(Player player);           // 优先权传递
+
+    // 查询方法
+    String getFullLog();
+    List<LogEntry> getEntries();
+    List<LogEntry> getEntriesSince(int index);
+    List<LogEntry> getEntriesForTurn(int turn);
+    List<LogEntry> getEntriesByType(LogType type);
+}
+```
+
+**日志类型 (LogType)**:
+- INFO, ACTION, PHASE, TURN — 基础信息
+- DAMAGE, LIFE, ATTACK, BLOCK, DESTROYED — 战斗相关
+- ZONE_CHANGE, CARD_PLAYED, SPELL_CAST, SPELL_RESOLVE — 咒语相关
+- GAME_OVER, PRIORITY, DISCARD, DRAW — 游戏流程
+
+### 3.2 战斗系统增强
+
+#### CombatResolver
+
+完整的战斗解析器，支持关键词异能：
+
+```java
+public class CombatResolver {
+    // 宣告方法
+    void declareAttacker(CreatureCard creature, Player target);
+    void declareBlocker(CreatureCard blocker, CreatureCard attacker);
+
+    // 伤害解决
+    void resolveAllCombatDamage();  // 主入口
+    void applyKeywordEffects();    // 系命等异能
+    void applyLethalDamageSBA();  // 致命伤害 SBA
+
+    // 查询
+    List<DeclaredAttacker> getAttackers();
+    List<DeclaredBlocker> getBlockers();
+    List<CombatDamageResult> getDamageResults();
+    int getRequiredBlockers(CreatureCard attacker); // 威慑异能
+}
+```
+
+**支持的关键词异能**:
+| 异能 | 规则 | 实现 |
+|------|------|------|
+| Flying | 702.9 | canBlockAttacker() 检查阻挡限制 |
+| First Strike | 702.7 | 先攻伤害步骤 |
+| Double Strike | 702.8 | 先攻 + 正常伤害 |
+| Trample | 702.19 | 超出伤害给玩家 |
+| Deathtouch | 702.2 | 1点伤害消灭生物 |
+| Vigilance | 702.20 | 攻击不横置 |
+| Haste | 702.10 | 无召唤 sickness |
+| Lifelink | 702.15 | 造成伤害回血 |
+| Indestructible | 702.12 | SBA 跳过 |
+| Reach | 702.17 | 可阻挡飞行 |
+| Menace | 702.111 | 需要2+生物阻挡 |
+
+### 3.3 法力系统
+
+#### ManaPool
+
+法力池管理类：
+
+```java
+public class ManaPool {
+    // 基础操作
+    void add(ManaType type, int amount);
+    void addGeneric(int amount);
+    void clear();
+    void deductGeneric(int amount);
+
+    // 查询
+    int getAmount(ManaType type);
+    int getTotalMana();
+    boolean isEmpty();
+    boolean hasAmount(int amount);
+    boolean canPay(ManaCost cost);
+
+    // 支付
+    boolean pay(ManaCost cost);
+
+    // 显示
+    String toDisplayString();
+    Map<ManaType, Integer> getDistribution();
+}
+```
+
+**Player 集成**:
+- `player.getManaPool()` 获取法力池
+- `player.produceMana()` 从地产生法力（同时填充 ManaPool）
+- `player.canPayCost()` 和 `player.payMana()` 优先使用 ManaPool
+
+### 3.4 UI 集成
+
+#### GameFrame 增强
+- 使用 JList + DefaultListModel 显示游戏日志
+- 实时更新回合数、阶段、玩家信息
+- 战斗宣告和阻挡支持
+
+#### PlayerPanel 增强
+- 显示 ManaPool 内容（优先）
+- 回退显示 availableMana
+
+---
+
+## Phase 3 待开发
+
+- PhaseIndicator 组件（阶段指示器）
+- BattlefieldPanel 战斗宣告 UI
+- 目标选择系统
 - 更多卡牌效果实现
 - AI 对手
 - 网络对战

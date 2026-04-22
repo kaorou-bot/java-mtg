@@ -5,7 +5,7 @@
 MTG Battle 是一个基于 Magic: The Gathering 2026年2月27日综合规则的1v1 Java Swing 对战游戏。
 
 **当前分支**: `java-mtg` (main: `main`)
-**Commit**: `Phase 2 完成` — 异能系统、效果系统、卡牌效果解析
+**Commit**: `Phase 3 进行中` — UI 集成、游戏日志、战斗系统、法力池
 
 **运行方式**:
 ```bash
@@ -42,7 +42,7 @@ java -cp out com.mtg.MtgBattle
 
 - **compile-main** — 编译主代码到 `out/`
 - **compile-tests** — 编译测试代码到 `test-classes/`（需先运行 download-junit）
-- **run-tests** — 运行全部 153 个测试
+- **run-tests** — 运行全部 210 个测试
 - **download-junit** — 下载 JUnit Platform Console（一次性）
 - **build-all** — 清理并重新编译
 
@@ -74,7 +74,7 @@ done
 java -jar /tmp/junit-platform-console-standalone.jar \
   --class-path "/tmp/mtg-test-classes:/tmp/mtg-classes" --scan-classpath
 
-# 当前状态: 153 tests, 全部通过
+# 当前状态: 210 tests, 全部通过
 ```
 
 ---
@@ -215,14 +215,22 @@ MAIN2 → END → CLEANUP → (switchTurn → UNTAAP)
 
 ---
 
-## Phase 3 待开发
+## Phase 3 进行中
 
-- 回合阶段 UI 完整集成
-- 游戏日志系统
-- 战斗系统增强（关键词异能）
-- 法力系统完善
+### 已完成 ✓
+
+- **游戏日志系统** — `GameLog` 17种日志类型，完整事件记录
+- **战斗解析器** — `CombatResolver` 支持践踏、先攻、致命、系命等异能
+- **法力池** — `ManaPool` 颜色追踪、支付、清空
+- **UI 集成** — GameFrame 使用 JList 显示日志，PlayerPanel 显示 ManaPool
+
+### 待开发
+
+- PhaseIndicator 组件（阶段指示器）
+- BattlefieldPanel 战斗宣告 UI
 - 目标选择系统
 - 更多卡牌效果
+- AI 对手
 
 ---
 
@@ -297,3 +305,9 @@ MAIN2 → END → CLEANUP → (switchTurn → UNTAAP)
 - `StateBasedActions` — 改为实例方法，添加 ZoneManager 引用，正确销毁永久物
 - `CreatureCard` — 添加 keyword ability 的 setter 方法（setHasFlying 等）
 - `Stack` — 添加 `pushAbility(TriggeredAbility/ActivatedAbility)` 支持异能入堆叠
+
+### Phase 3 修复的 Bug
+- `GameLog.logPhase/logTurnStart/logDamage` — 添加 null 安全检查
+- `GameLog.toString()` — phase 可能为 null，添加 null 检查
+- `Game.startGame()` — 在 turnManager.startTurn() 后再记录日志（避免 currentPhase 为 null）
+- `CombatResolver.resolveTrampleDamage` — 使用 baseToughness 和 markedDamage 计算剩余需伤害

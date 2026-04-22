@@ -16,7 +16,6 @@ public class GameFrame extends JFrame implements Game.GameListener {
     private HandPanel player2Hand;
     private BattlefieldPanel player1Battlefield;
     private BattlefieldPanel player2Battlefield;
-    private JLabel phaseLabel;
     private JPanel buttonPanel;
     private JButton nextPhaseButton;
     private JButton endTurnButton;
@@ -25,6 +24,7 @@ public class GameFrame extends JFrame implements Game.GameListener {
     private DefaultListModel<String> logModel;
 
     private CreatureCard selectedAttacker;
+    private PhaseIndicator phaseIndicator;
 
     public GameFrame() {
         setTitle("MTG Battle - Magic: The Gathering");
@@ -55,14 +55,10 @@ public class GameFrame extends JFrame implements Game.GameListener {
         playerInfoPanel.add(player2Panel);
         playerInfoPanel.add(player1Panel);
 
-        phaseLabel = new JLabel("Waiting to start...", SwingConstants.CENTER);
-        phaseLabel.setFont(new Font("Arial", Font.BOLD, 16));
-        phaseLabel.setOpaque(true);
-        phaseLabel.setBackground(new Color(70, 130, 180));
-        phaseLabel.setForeground(Color.WHITE);
+        phaseIndicator = new PhaseIndicator();
 
         topPanel.add(playerInfoPanel, BorderLayout.NORTH);
-        topPanel.add(phaseLabel, BorderLayout.SOUTH);
+        topPanel.add(phaseIndicator, BorderLayout.SOUTH);
 
         JPanel centerPanel = new JPanel(new BorderLayout());
 
@@ -167,10 +163,7 @@ public class GameFrame extends JFrame implements Game.GameListener {
         player1Battlefield.refresh();
         player2Battlefield.refresh();
 
-        phaseLabel.setText(String.format("Turn %d | %s | %s's turn",
-            game.getTurnNumber(),
-            game.getCurrentPhase().getName(),
-            currentPlayer.getName()));
+        phaseIndicator.update(game.getTurnNumber(), game.getCurrentPhase(), currentPlayer);
 
         updateButtons();
         updateLogDisplay();

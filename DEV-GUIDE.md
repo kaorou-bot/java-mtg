@@ -507,11 +507,31 @@ public class ManaPool {
 - 显示 ManaPool 内容（优先）
 - 回退显示 availableMana
 
+### 3.5 阶段指示器
+
+#### PhaseIndicator
+
+可视化回合阶段指示器：
+
+```java
+public class PhaseIndicator extends JPanel {
+    void update(int turn, TurnPhase phase, Player player);
+    TurnPhase getCurrentPhase();
+    int getTurnNumber();
+    Player getCurrentPlayer();
+}
+```
+
+**功能特性**:
+- 显示完整的回合结构（Beginning → Main1 → Combat → Main2 → Ending）
+- 颜色编码：蓝色=当前阶段，绿色=已完成，灰色=未到达
+- 显示回合数、当前阶段名称、主动玩家
+- 短名称显示（Untap, Upkeep, Draw, Main 1, Start, Atk, Blk, Dmg, Main 2, End, Cleanup）
+
 ---
 
 ## Phase 3 待开发
 
-- PhaseIndicator 组件（阶段指示器）
 - BattlefieldPanel 战斗宣告 UI
 - 目标选择系统
 - 更多卡牌效果实现

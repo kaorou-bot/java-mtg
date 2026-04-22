@@ -105,7 +105,7 @@ src/main/java/com/mtg/
 ├── abilities/      # TriggeredAbility, ActivatedAbility, TriggeredAbilityManager
 ├── effects/        # ReplacementEffect, PreventionEffect, GameEvent, EffectManager
 ├── resolution/     # CardEffectResolver
-└── ui/             # GameFrame, HandPanel, BattlefieldPanel, CardPanel, PlayerPanel
+└── ui/             # GameFrame, HandPanel, BattlefieldPanel, CardPanel, PlayerPanel, PhaseIndicator
 ```
 
 ---
@@ -223,10 +223,10 @@ MAIN2 → END → CLEANUP → (switchTurn → UNTAAP)
 - **战斗解析器** — `CombatResolver` 支持践踏、先攻、致命、系命等异能
 - **法力池** — `ManaPool` 颜色追踪、支付、清空
 - **UI 集成** — GameFrame 使用 JList 显示日志，PlayerPanel 显示 ManaPool
+- **阶段指示器** — `PhaseIndicator` 可视化显示回合阶段进度
 
 ### 待开发
 
-- PhaseIndicator 组件（阶段指示器）
 - BattlefieldPanel 战斗宣告 UI
 - 目标选择系统
 - 更多卡牌效果

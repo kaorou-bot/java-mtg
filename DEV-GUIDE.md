@@ -528,14 +528,90 @@ public class PhaseIndicator extends JPanel {
 - 显示回合数、当前阶段名称、主动玩家
 - 短名称显示（Untap, Upkeep, Draw, Main 1, Start, Atk, Blk, Dmg, Main 2, End, Cleanup）
 
+### 3.6 目标选择系统
+
+#### TargetType, Target, TargetSelector
+
+目标系统组件：
+
+```java
+public enum TargetType {
+    PLAYER, OPPONENT, CREATURE, OPPONENT_CREATURE,
+    PERMANENT, ENCHANTMENT, AURA, ARTIFACT,
+    LAND, PLANESWALKER, BATTLE, SPELL
+}
+
+public class Target {
+    TargetType getTargetType();
+    Object getTarget();
+    boolean isLegal();
+    boolean isPlayer();
+    boolean isCreature();
+}
+
+public class TargetSelector {
+    List<Object> getLegalTargets(Game, TargetType, Player);
+    boolean isLegalTarget(Object, TargetType, Player);
+    Object getSingleTarget(Game, TargetType, Player);
+}
+```
+
+#### TargetSelectionDialog
+
+UI 目标选择对话框：
+- 显示当前可选择的合法目标
+- 颜色编码区分目标类型
+- 支持多目标选择
+
+### 3.7 BattlefieldPanel 战斗 UI
+
+#### CardPanel 战斗状态
+
+生物卡片战斗状态可视化：
+```java
+cardPanel.setAttacking(boolean);  // 红色边框
+cardPanel.setBlocking(boolean);   // 蓝色边框
+cardPanel.setTappedForAttack(boolean);
+```
+
+#### CombatResolver 集成
+
+战场面板连接 CombatResolver 以显示战斗状态：
+```java
+battlefieldPanel.setCombatResolver(combatResolver);
+```
+
+### 3.8 SimpleAI
+
+简单 AI 对手：
+
+```java
+public class SimpleAI {
+    void takeTurn();           // 执行完整回合
+    void setCombatResolver();  // 设置战斗解析器
+    Player getAIPlayer();
+}
+```
+
+**AI 策略**:
+- 出牌：优先出高费永久物
+- 攻击：全部可用生物攻击
+- 阻挡：阻挡最大威胁
+
+### 3.9 CardEffectResolver 扩展
+
+新增卡牌效果：
+- 消灭咒语：`Murder`, `Go for the Throat`, `Wrath of God`
+- 反击咒语：`Counterspell`, `Mana Leak`
+- 抓牌咒语：`Divination`, `Preordain`, `Opt`
+- 弃牌咒语：`Thoughtseize`
+- 消灭所有：`destroyAllCreatures`, `destroyAllLands`
+
 ---
 
 ## Phase 3 待开发
 
-- BattlefieldPanel 战斗宣告 UI
-- 目标选择系统
-- 更多卡牌效果实现
-- AI 对手
+- 更多卡牌效果
 - 网络对战
 
 ---

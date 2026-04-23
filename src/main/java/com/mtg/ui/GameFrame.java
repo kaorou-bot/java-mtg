@@ -25,6 +25,7 @@ public class GameFrame extends JFrame implements Game.GameListener {
 
     private CreatureCard selectedAttacker;
     private PhaseIndicator phaseIndicator;
+    private CombatResolver combatResolver;
 
     public GameFrame() {
         setTitle("MTG Battle - Magic: The Gathering");
@@ -70,6 +71,13 @@ public class GameFrame extends JFrame implements Game.GameListener {
 
         player2Battlefield = new BattlefieldPanel(game.getPlayer2(), game.getPlayer1(), false, this);
         player1Battlefield = new BattlefieldPanel(game.getPlayer1(), game.getPlayer2(), true, this);
+
+        // 初始化战斗解析器
+        combatResolver = new CombatResolver(game);
+
+        // 连接战斗解析器到战场面板
+        player1Battlefield.setCombatResolver(combatResolver);
+        player2Battlefield.setCombatResolver(combatResolver);
 
         battlefieldPanel.add(player2Battlefield);
         battlefieldPanel.add(player1Battlefield);

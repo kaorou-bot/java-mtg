@@ -1,5 +1,6 @@
 package com.mtg.ui;
 
+import com.mtg.game.*;
 import com.mtg.model.*;
 import com.mtg.player.Player;
 import javax.swing.*;
@@ -12,6 +13,7 @@ public class BattlefieldPanel extends JPanel {
     private Player opponent;
     private GameFrame gameFrame;
     private boolean isCurrentPlayerBattlefield;
+    private CombatResolver combatResolver;
 
     // Card panels for all permanent types
     private List<CardPanel> creaturePanels;
@@ -34,6 +36,13 @@ public class BattlefieldPanel extends JPanel {
         this.planeswalkerPanels = new ArrayList<>();
         this.battlePanels = new ArrayList<>();
         setupPanel();
+    }
+
+    /**
+     * 设置战斗解析器以显示战斗状态。
+     */
+    public void setCombatResolver(CombatResolver resolver) {
+        this.combatResolver = resolver;
     }
 
     private void setupPanel() {
@@ -100,6 +109,16 @@ public class BattlefieldPanel extends JPanel {
         } else {
             for (T permanent : permanents) {
                 CardPanel cardPanel = new CardPanel(permanent);
+
+                // 设置战斗状态
+                if (combatResolver != null && permanent instanceof CreatureCard creature) {
+                    boolean isAttacker = combatResolver.getAttackers().stream()
+                        .anyMatch(a -> a.creature == creature);
+                    boolean isBlocker = combatResolver.getBlockers().stream()
+                        .anyMatch(b -> b.blocker == creature);
+                    cardPanel.setAttacking(isAttacker);
+                    cardPanel.setBlocking(isBlocker);
+                }
 
                 if (isCurrentPlayerBattlefield && gameFrame != null) {
                     if (permanent instanceof CreatureCard creature) {

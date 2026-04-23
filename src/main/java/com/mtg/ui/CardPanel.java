@@ -10,6 +10,9 @@ public class CardPanel extends JPanel {
     private Card card;
     private boolean selected;
     private boolean playable;
+    private boolean attacking;    // 正在攻击
+    private boolean blocking;     // 正在阻挡
+    private boolean tappedForAttack;  // 已宣告攻击
     private Runnable onClick;
 
     private static final Color CREATURE_COLOR = new Color(139, 69, 19);
@@ -21,11 +24,16 @@ public class CardPanel extends JPanel {
     private static final Color INSTANT_COLOR = new Color(25, 25, 112);
     private static final Color SELECTED_COLOR = new Color(255, 215, 0);
     private static final Color PLAYABLE_COLOR = new Color(144, 238, 144);
+    private static final Color ATTACKING_COLOR = new Color(255, 100, 100);
+    private static final Color BLOCKING_COLOR = new Color(100, 100, 255);
 
     public CardPanel(Card card) {
         this.card = card;
         this.selected = false;
         this.playable = false;
+        this.attacking = false;
+        this.blocking = false;
+        this.tappedForAttack = false;
         setupPanel();
     }
 
@@ -59,7 +67,11 @@ public class CardPanel extends JPanel {
     }
 
     private void updateBackground() {
-        if (selected) {
+        if (attacking) {
+            setBackground(ATTACKING_COLOR);
+        } else if (blocking) {
+            setBackground(BLOCKING_COLOR);
+        } else if (selected) {
             setBackground(SELECTED_COLOR);
         } else if (playable) {
             setBackground(PLAYABLE_COLOR);
@@ -152,13 +164,25 @@ public class CardPanel extends JPanel {
             g2d.drawString("Vig", 3, h - 10);
         }
 
-        if (creature.isTapped()) {
+        if (creature.isTapped() || tappedForAttack) {
             g2d.setColor(new Color(255, 0, 0, 100));
             g2d.fillRect(3, 3, w - 6, h - 6);
             g2d.setColor(Color.RED);
             g2d.setStroke(new BasicStroke(3));
             g2d.drawLine(3, 3, w - 3, h - 3);
             g2d.drawLine(w - 3, 3, 3, h - 3);
+        }
+
+        // 显示攻击/阻挡状态
+        if (attacking) {
+            g2d.setColor(Color.RED);
+            g2d.setStroke(new BasicStroke(2));
+            g2d.drawRect(2, 2, w - 4, h - 4);
+        }
+        if (blocking) {
+            g2d.setColor(Color.BLUE);
+            g2d.setStroke(new BasicStroke(2));
+            g2d.drawRect(4, 4, w - 8, h - 8);
         }
     }
 
@@ -364,6 +388,23 @@ public class CardPanel extends JPanel {
     public void setPlayable(boolean playable) {
         this.playable = playable;
         updateBackground();
+        repaint();
+    }
+
+    public void setAttacking(boolean attacking) {
+        this.attacking = attacking;
+        updateBackground();
+        repaint();
+    }
+
+    public void setBlocking(boolean blocking) {
+        this.blocking = blocking;
+        updateBackground();
+        repaint();
+    }
+
+    public void setTappedForAttack(boolean tapped) {
+        this.tappedForAttack = tapped;
         repaint();
     }
 

@@ -99,13 +99,13 @@ src/main/java/com/mtg/
 ├── model/          # Card, CreatureCard, LandCard, PermanentCard, GameObject...
 ├── zones/          # Zone, Library, Hand, Battlefield, Graveyard, Exile, Stack, ZoneManager
 ├── gamecore/       # PrioritySystem, StateBasedActions
-├── game/           # Game, TurnManager, TurnPhase, (废弃: GamePhase, CombatManager)
+├── game/           # Game, TurnManager, TurnPhase, CombatResolver, SimpleAI
 ├── player/         # Player, Deck
 ├── card/           # CardLibrary
 ├── abilities/      # TriggeredAbility, ActivatedAbility, TriggeredAbilityManager
 ├── effects/        # ReplacementEffect, PreventionEffect, GameEvent, EffectManager
 ├── resolution/     # CardEffectResolver
-└── ui/             # GameFrame, HandPanel, BattlefieldPanel, CardPanel, PlayerPanel, PhaseIndicator
+└── ui/             # GameFrame, HandPanel, BattlefieldPanel, CardPanel, PlayerPanel, PhaseIndicator, TargetSelectionDialog
 ```
 
 ---
@@ -224,13 +224,14 @@ MAIN2 → END → CLEANUP → (switchTurn → UNTAAP)
 - **法力池** — `ManaPool` 颜色追踪、支付、清空
 - **UI 集成** — GameFrame 使用 JList 显示日志，PlayerPanel 显示 ManaPool
 - **阶段指示器** — `PhaseIndicator` 可视化显示回合阶段进度
+- **目标选择系统** — `Target`, `TargetType`, `TargetSelector`, `TargetSelectionDialog`
+- **BattlefieldPanel 战斗 UI** — 战斗状态可视化（攻击/阻挡高亮）
+- **简单 AI** — `SimpleAI` 自动出牌和战斗决策
 
 ### 待开发
 
-- BattlefieldPanel 战斗宣告 UI
-- 目标选择系统
 - 更多卡牌效果
-- AI 对手
+- 网络对战
 
 ---
 

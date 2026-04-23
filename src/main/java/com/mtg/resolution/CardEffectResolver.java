@@ -6,6 +6,7 @@ import com.mtg.player.Player;
 import com.mtg.zones.Battlefield;
 import com.mtg.zones.ZoneManager;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -108,29 +109,58 @@ public class CardEffectResolver {
 
         // 根据卡牌名称执行效果
         switch (spell.getName()) {
-            // 伤害咒语
+            // 红色伤害咒语
             case "Lightning Bolt" -> dealDamageToAny(spell, game, caster, opponent, 3);
             case "Shock" -> dealDamageToAny(spell, game, caster, opponent, 2);
             case "Fireball" -> dealDamageToAny(spell, game, caster, opponent, 5);
+            case "Lightning Strike" -> dealDamageToAny(spell, game, caster, opponent, 3);
+            case "Wizard's Lightning" -> dealDamageToAny(spell, game, caster, opponent, 3);
 
-            // 抓牌/生命咒语
-            case "Revitalize" -> gainLifeAndDraw(spell, game, caster, 3, 1);
-
-            // 消灭咒语
-            case "Doom Blade" -> destroyTargetNonBlack(spell, game, caster, opponent, bf);
+            // 蓝色反击咒语
             case "Cancel" -> counterTargetSpell(spell, game, caster);
+            case "Counterspell" -> counterTargetSpell(spell, game, caster);
+            case "Mana Leak" -> counterTargetSpell(spell, game, caster);
+
+            // 黑色消灭咒语
+            case "Doom Blade" -> destroyTargetNonBlack(spell, game, caster, opponent, bf);
+            case "Terror" -> destroyTargetNonBlack(spell, game, caster, opponent, bf);
+            case "Dark Banishing" -> destroyTargetNonBlack(spell, game, caster, opponent, bf);
+            case "Murder" -> destroyTargetAny(spell, game, bf);
+            case "Go for the Throat" -> destroyTargetCreature(spell, game, bf);
+            case "Vraska's Contempt" -> destroyTargetCreatureOrPlaneswalker(spell, game, bf);
+
+            // 白色治疗/保护咒语
+            case "Revitalize" -> gainLifeAndDraw(spell, game, caster, 3, 1);
+            case "Healing Salve" -> healingSalve(spell, game, caster);
+            case "Divine Smite" -> dealDamageToAny(spell, game, caster, opponent, 4);
+
+            // 绿色生物增强
+            case "Giant Growth" -> buffTargetCreature(spell, game, caster, 3, 3);
+            case "Might of Oaks" -> buffTargetCreature(spell, game, caster, 7, 7);
+            case "Ranger's Path" -> searchLibraryForLand(game, caster);
+
+            // 蓝色抓牌咒语
+            case "Divination" -> drawCards(spell, game, caster, 2);
+            case "Preordain" -> drawCards(spell, game, caster, 1);
+            case "Opt" -> drawCards(spell, game, caster, 1);
+
+            // 黑色弃牌咒语
+            case "Duress" -> opponentDiscardsOne(spell, game, opponent);
+            case "Thoughtseize" -> opponentDiscardsOne(spell, game, opponent);
+            case "Hypnotic Specter" -> {} // 生物被动异能，由异能系统处理
 
             // 法力咒语
-            case "Dark Ritual" -> produceBlackMana(caster, 3);
-
-            // 生物增强咒语
-            case "Giant Growth" -> buffTargetCreature(spell, game, caster, 3, 3);
-
-            // 搜索咒语
+            case "Dark Ritual" -> produceManaOfType(caster, ManaType.BLACK, 3);
             case "Rampant Growth" -> searchLibraryForLand(game, caster);
+            case "Fertile Ground" -> {} // 结界被动异能，由异能系统处理
 
-            // 弃牌咒语
-            case "Duress" -> opponentDiscards(spell, game, opponent);
+            // 消灭所有生物
+            case "Wrath of God" -> destroyAllCreatures(spell, game, bf);
+            case "Day of Judgment" -> destroyAllCreatures(spell, game, bf);
+
+            // 消灭所有地
+            case "Armageddon" -> destroyAllLands(spell, game, bf);
+            case "Catastrophe" -> destroyAllLands(spell, game, bf);
 
             default -> {
                 // 未知咒语 - 移到坟场
@@ -139,7 +169,100 @@ public class CardEffectResolver {
         }
     }
 
-    // ========== 效果辅助方法 ==========
+    // ========== 新增效果方法 ==========
+
+    /**
+     * 消灭任意永久物。
+     */
+    public static void destroyTargetAny(Card source, Game game, Battlefield bf) {
+        List<CreatureCard> creatures = bf.getCreatures();
+        if (!creatures.isEmpty()) {
+            destroyPermanent(game, creatures.get(0));
+        }
+    }
+
+    /**
+     * 消灭目标生物。
+     */
+    public static void destroyTargetCreature(Card source, Game game, Battlefield bf) {
+        List<CreatureCard> creatures = bf.getCreatures();
+        if (!creatures.isEmpty()) {
+            destroyPermanent(game, creatures.get(0));
+        }
+    }
+
+    /**
+     * 消灭目标生物或鹏洛客。
+     */
+    public static void destroyTargetCreatureOrPlaneswalker(Card source, Game game, Battlefield bf) {
+        List<CreatureCard> creatures = bf.getCreatures();
+        if (!creatures.isEmpty()) {
+            destroyPermanent(game, creatures.get(0));
+        } else {
+            var planeswalkers = bf.getPlaneswalkers();
+            if (!planeswalkers.isEmpty()) {
+                destroyPermanent(game, planeswalkers.get(0));
+            }
+        }
+    }
+
+    /**
+     * 治疗法术。
+     */
+    public static void healingSalve(Card source, Game game, Player target) {
+        target.modifyLife(3);
+    }
+
+    /**
+     * 抓多张牌。
+     */
+    public static void drawCards(Card source, Game game, Player target, int count) {
+        for (int i = 0; i < count; i++) {
+            game.drawCard(target);
+        }
+    }
+
+    /**
+     * 产生指定类型法力。
+     */
+    public static void produceManaOfType(Player player, ManaType type, int amount) {
+        for (int i = 0; i < amount; i++) {
+            player.addMana(type);
+        }
+    }
+
+    /**
+     * 对手弃一张牌。
+     */
+    public static void opponentDiscardsOne(Card source, Game game, Player opponent) {
+        var hand = game.getZoneManager().getHand(opponent);
+        List<Card> cards = hand.getCards();
+        if (!cards.isEmpty()) {
+            game.getZoneManager().discard(cards.get(0), opponent);
+        }
+    }
+
+    /**
+     * 消灭所有生物。
+     */
+    public static void destroyAllCreatures(Card source, Game game, Battlefield bf) {
+        List<CreatureCard> creatures = new ArrayList<>(bf.getCreatures());
+        for (CreatureCard creature : creatures) {
+            destroyPermanent(game, creature);
+        }
+    }
+
+    /**
+     * 消灭所有地。
+     */
+    public static void destroyAllLands(Card source, Game game, Battlefield bf) {
+        List<LandCard> lands = new ArrayList<>(bf.getLands());
+        for (LandCard land : lands) {
+            destroyPermanent(game, land);
+        }
+    }
+
+    // ========== 原有效果辅助方法 ==========
 
     /**
      * 对任意目标（玩家或生物）造成伤害。
